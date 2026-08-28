@@ -348,6 +348,8 @@ code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:12px;
       <button class="aba" role="tab" id="aba-pareto" aria-controls="painel-pareto" data-aba="pareto" aria-selected="false" tabindex="-1">Pareto</button>
       <button class="aba" role="tab" id="aba-unidades" aria-controls="painel-unidades" data-aba="unidades"    aria-selected="false" tabindex="-1">Unidades</button>
       <button class="aba" role="tab" id="aba-consulta" aria-controls="painel-consulta" data-aba="consulta"    aria-selected="false" tabindex="-1">Consulta</button>
+      <button class="aba" role="tab" id="aba-erros" aria-controls="painel-erros" data-aba="erros"    aria-selected="false" tabindex="-1">Erros</button>
+      <button class="aba" role="tab" id="aba-semdata" aria-controls="painel-semdata" data-aba="semdata"    aria-selected="false" tabindex="-1">Sem data</button>
       <button class="aba" role="tab" id="aba-mapa" aria-controls="painel-mapa" data-aba="mapa"    aria-selected="false" tabindex="-1">Mapa</button>
     </div>
     <div class="estado-in">
@@ -561,6 +563,28 @@ code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:12px;
           <button class="bs" id="b-csv" style="padding:7px 14px">↓ CSV</button>
         </div>
         <div class="tabela-wrap"><table id="tab"><thead><tr></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="painel-erros" role="tabpanel" aria-labelledby="aba-erros" tabindex="0" data-painel="erros" hidden>
+      <div class="card">
+        <div class="card-h">
+          <div class="card-t">Erros e inconsistências na planilha</div>
+          <div class="card-s" id="sub-erros">—</div>
+        </div>
+        <div class="kpis" id="kpis-erros" style="padding:0 18px 16px"></div>
+        <div id="erros-corpo"></div>
+      </div>
+    </section>
+
+    <section id="painel-semdata" role="tabpanel" aria-labelledby="aba-semdata" tabindex="0" data-painel="semdata" hidden>
+      <div class="card">
+        <div class="card-h">
+          <div class="card-t">Intervenções sem nenhuma data registrada</div>
+          <div class="card-s" id="sub-semdata">—</div>
+        </div>
+        <div class="kpis" id="kpis-semdata" style="padding:0 18px 16px"></div>
+        <div id="semdata-corpo"></div>
       </div>
     </section>
 
@@ -875,8 +899,10 @@ function montarBase(grade){
       tipo: txt(pega(l,'tipo')).toUpperCase(), perfil: txt(pega(l,'perfil')),
       setor: txt(pega(l,'setor')), descricao: txt(pega(l,'descricao')),
       area: num(pega(l,'area')),
-      iniPrev: parseData(pega(l,'iniPrev')), fimPrev: parseData(pega(l,'fimPrev')),
-      iniReal: parseData(pega(l,'iniReal')), fimReal: parseData(pega(l,'fimReal')),
+      iniPrevRaw: txt(pega(l,'iniPrev')), iniPrev: parseData(pega(l,'iniPrev')),
+      fimPrevRaw: txt(pega(l,'fimPrev')), fimPrev: parseData(pega(l,'fimPrev')),
+      iniRealRaw: txt(pega(l,'iniReal')), iniReal: parseData(pega(l,'iniReal')),
+      fimRealRaw: txt(pega(l,'fimReal')), fimReal: parseData(pega(l,'fimReal')),
       exec: txt(pega(l,'statusExec')).toUpperCase(), classif: txt(pega(l,'classif')),
       linha: i + 1
     };
@@ -1592,7 +1618,8 @@ function comRolagem(fn){
 }
 const NOME_ABA = {geral:'Visão geral', vencimentos:'Vencimentos', cronograma:'Cronograma',
                   execucao:'Execução', carteira:'Distribuição', pareto:'Pareto',
-                  unidades:'Unidades', mapa:'Mapa', consulta:'Consulta'};
+                  unidades:'Unidades', mapa:'Mapa', consulta:'Consulta',
+                  erros:'Erros', semdata:'Sem data'};
 function resumoImpressao(n){
   const f = [];
   if(F.uni.length) f.push('Unidade: ' + F.uni.join(', '));
@@ -1620,6 +1647,8 @@ function desenhar(){
   if(ABA === 'unidades')    return abaUnidades(d);
   if(ABA === 'mapa')        return abaMapa(d);
   if(ABA === 'consulta')    return abaConsulta();
+  if(ABA === 'erros')       return abaErros();
+  if(ABA === 'semdata')     return abaSemData();
   });
 }
 
@@ -2251,6 +2280,245 @@ const GERES_INFO = {
 };
 const COR_GERES_PADRAO = '#c7cfd8';
 
+/* município oficial (IBGE) -> GERES esperada — usado no diagnóstico de qualidade dos dados */
+const MUNICIPIOS_GERES = {"Abreu e Lima":"I","Afogados da Ingazeira":"X","Afrânio":"VIII","Agrestina":"IV","Alagoinha":"IV","Aliança":"XII","Altinho":"IV","Amaraji":"III","Angelim":"V","Araripina":"IX","Araçoiaba":"I","Arcoverde":"VI","Barra de Guabiraba":"IV","Barreiros":"III","Belo Jardim":"IV","Belém de Maria":"III","Belém do São Francisco":"VII","Betânia":"XI","Bezerros":"IV","Bodocó":"IX","Bom Conselho":"V","Bom Jardim":"II","Bonito":"IV","Brejinho":"X","Brejo da Madre de Deus":"IV","Brejão":"V","Buenos Aires":"II","Buíque":"VI","Cabo de Santo Agostinho":"I","Cabrobó":"VIII","Cachoeirinha":"IV","Caetés":"V","Calumbi":"XI","Calçado":"V","Camaragibe":"I","Camocim de São Félix":"IV","Camutanga":"XII","Canhotinho":"V","Capoeiras":"V","Carnaubeira da Penha":"XI","Carnaíba":"X","Carpina":"II","Caruaru":"IV","Casinhas":"II","Catende":"III","Cedro":"VII","Chã Grande":"I","Chã de Alegria":"I","Condado":"XII","Correntes":"V","Cortês":"III","Cumaru":"II","Cupira":"IV","Custódia":"VI","Dormentes":"VIII","Escada":"III","Exu":"IX","Feira Nova":"II","Fernando de Noronha":"I","Ferreiros":"XII","Flores":"XI","Floresta":"XI","Frei Miguelinho":"IV","Gameleira":"III","Garanhuns":"V","Glória do Goitá":"I","Goiana":"XII","Granito":"IX","Gravatá":"IV","Iati":"V","Ibimirim":"VI","Ibirajuba":"IV","Igarassu":"I","Iguaracy":"X","Ilha de Itamaracá":"I","Inajá":"VI","Ingazeira":"X","Ipojuca":"I","Ipubi":"IX","Itacuruba":"XI","Itambé":"XII","Itapetim":"X","Itapissuma":"I","Itaquitinga":"XII","Itaíba":"V","Jaboatão dos Guararapes":"I","Jaqueira":"III","Jataúba":"IV","Jatobá":"VI","Joaquim Nabuco":"III","João Alfredo":"II","Jucati":"V","Jupi":"V","Jurema":"IV","Lagoa Grande":"VIII","Lagoa de Itaenga":"II","Lagoa do Carro":"II","Lagoa do Ouro":"V","Lagoa dos Gatos":"III","Lajedo":"V","Limoeiro":"II","Macaparana":"XII","Machados":"II","Manari":"VI","Maraial":"III","Mirandiba":"VII","Moreilândia":"IX","Moreno":"I","Nazaré da Mata":"II","Olinda":"I","Orobó":"II","Orocó":"VIII","Ouricuri":"IX","Palmares":"III","Palmeirina":"V","Panelas":"IV","Paranatama":"V","Parnamirim":"IX","Passira":"II","Paudalho":"II","Paulista":"I","Pedra":"VI","Pesqueira":"IV","Petrolina":"VIII","Petrolândia":"VI","Pombos":"I","Poção":"IV","Primavera":"III","Quipapá":"III","Quixaba":"X","Recife":"I","Riacho das Almas":"IV","Ribeirão":"III","Rio Formoso":"III","Sairé":"IV","Salgadinho":"II","Salgueiro":"VII","Saloá":"V","Sanharó":"IV","Santa Cruz":"IX","Santa Cruz da Baixa Verde":"XI","Santa Cruz do Capibaribe":"IV","Santa Filomena":"IX","Santa Maria da Boa Vista":"VIII","Santa Maria do Cambucá":"IV","Santa Terezinha":"X","Serra Talhada":"XI","Serrita":"VII","Sertânia":"VI","Sirinhaém":"III","Solidão":"X","Surubim":"II","São Benedito do Sul":"III","São Bento do Una":"IV","São Caitano":"IV","São Joaquim do Monte":"IV","São José da Coroa Grande":"III","São José do Belmonte":"XI","São José do Egito":"X","São João":"V","São Lourenço da Mata":"I","São Vicente Férrer":"XII","Tabira":"X","Tacaimbó":"IV","Tacaratu":"VI","Tamandaré":"III","Taquaritinga do Norte":"IV","Terezinha":"V","Terra Nova":"VII","Timbaúba":"XII","Toritama":"IV","Tracunhaém":"II","Trindade":"IX","Triunfo":"XI","Tupanatinga":"VI","Tuparetama":"X","Venturosa":"VI","Verdejante":"VII","Vertente do Lério":"II","Vertentes":"IV","Vicência":"II","Vitória de Santo Antão":"I","Xexéu":"III","Água Preta":"III","Águas Belas":"V"};
+
+/* ------------------------------------------------------- diagnóstico de qualidade dos dados */
+function levenshtein(a, b){
+  if(a === b) return 0;
+  const m = a.length, n = b.length;
+  if(!m) return n; if(!n) return m;
+  let prev = Array.from({length:n+1}, (_,j) => j);
+  for(let i = 1; i <= m; i++){
+    const cur = [i];
+    for(let j = 1; j <= n; j++)
+      cur[j] = a[i-1] === b[j-1] ? prev[j-1] : 1 + Math.min(prev[j], cur[j-1], prev[j-1]);
+    prev = cur;
+  }
+  return prev[n];
+}
+const normNome = s => norm(s).replace(/[^a-z ]/g, '');
+const ROTULOS_CAMPO = {
+  tipo:'Tipo de entrega', perfil:'Perfil assistencial', setor:'Pavimento/Setor', classif:'Classificação da unidade'
+};
+
+/* transforma texto em ALL CAPS ou irregular numa versão de leitura padronizada,
+   sem alterar o dado original (usado só na exibição da Consulta) */
+const PALAVRAS_MINUSCULAS = new Set(['de','da','do','das','dos','e','ou','em','no','na','nos','nas',
+  'a','o','as','os','com','para','por','ao','aos','à','às','um','uma','sem']);
+function textoLimpo(s){
+  s = String(s ?? '').trim().replace(/ {2,}/g, ' ');
+  if(!s) return s;
+  const temMinuscula = /[a-zà-öø-ÿ]/.test(s);
+  const temMaiuscula = /[A-ZÀ-Ö]/.test(s);
+  if(temMaiuscula && !temMinuscula){
+    let primeira = true;
+    s = s.toLowerCase().split(' ').map(pal => {
+      const nua = pal.replace(/^[^a-zà-öø-ÿ0-9]+/, '');
+      const manterMinuscula = !primeira && PALAVRAS_MINUSCULAS.has(nua);
+      primeira = false;
+      if(manterMinuscula) return pal;
+      return pal.replace(/(^|[\-\/(])([a-zà-öø-ÿ])/g, (m,p,c) => p + c.toUpperCase());
+    }).join(' ');
+  }
+  return s;
+}
+
+let _diagCache = null, _diagLinhas = null;
+function diagnosticar(){
+  if(_diagLinhas === LINHAS) return _diagCache;
+  const problemas = [];
+  const add = (r, campo, tipo, valor, detalhe, sev) => problemas.push({
+    unidade:r.unidade, sigla:siglaDe(r.unidade), municipio:r.municipio || '—', geres:r.geres || '—',
+    campo, tipo, valor, detalhe, sev, linha:r.linha
+  });
+
+  /* frequência de grafias por coluna categórica, p/ achar variantes raras (prováveis erros de digitação) */
+  const colsCateg = ['tipo','perfil','setor','classif'];
+  const impostor = {};
+  colsCateg.forEach(c => {
+    const freq = new Map();
+    for(const r of LINHAS){
+      const v = r[c]; if(!v) continue;
+      const n = norm(v);
+      if(!freq.has(n)) freq.set(n, new Map());
+      const mm = freq.get(n);
+      mm.set(v, (mm.get(v) || 0) + 1);
+    }
+    const mapa = new Map();
+    for(const variantes of freq.values()){
+      if(variantes.size <= 1) continue;
+      const ord = [...variantes.entries()].sort((a,b) => b[1]-a[1]);
+      const dominante = ord[0][0];
+      for(let i = 1; i < ord.length; i++) mapa.set(ord[i][0], {dominante, qtd:ord[i][1]});
+    }
+    impostor[c] = mapa;
+  });
+
+  /* área: limites bem folgados por IQR, só acusa valores realmente fora da curva */
+  const areas = LINHAS.map(r => r.area).filter(a => a > 0).sort((a,b) => a-b);
+  let limSup = Infinity, limInf = 0;
+  if(areas.length >= 8){
+    const q1 = areas[Math.floor(areas.length*0.25)], q3 = areas[Math.floor(areas.length*0.75)], iqr = q3-q1;
+    if(iqr > 0){ limSup = q3 + iqr*3; limInf = Math.max(0, q1 - iqr*3); }
+  }
+
+  for(const r of LINHAS){
+    /* 1) datas com formato inválido — o campo foi digitado, mas não é uma data possível */
+    for(const [campo, raw, parsed] of [
+      ['Início previsto', r.iniPrevRaw, r.iniPrev], ['Término previsto', r.fimPrevRaw, r.fimPrev],
+      ['Início real', r.iniRealRaw, r.iniReal], ['Término real', r.fimRealRaw, r.fimReal]
+    ]){
+      if(raw && !parsed && !/^\d{4,6}$/.test(raw))
+        add(r, campo, 'Data inválida', raw,
+          'A data “' + raw + '” não é uma data válida — dia, mês ou formato fora do padrão (ex.: dia 32, mês 13).', 'erro');
+    }
+    /* 2) datas fora de ordem lógica */
+    if(r.iniPrev && r.fimPrev && r.fimPrev < r.iniPrev)
+      add(r, 'Término previsto', 'Ordem de datas', dbr(r.fimPrev),
+        'Término previsto (' + dbr(r.fimPrev) + ') é anterior ao início previsto (' + dbr(r.iniPrev) + ').', 'erro');
+    if(r.iniReal && r.fimReal && r.fimReal < r.iniReal)
+      add(r, 'Término real', 'Ordem de datas', dbr(r.fimReal),
+        'Término real (' + dbr(r.fimReal) + ') é anterior ao início real (' + dbr(r.iniReal) + ').', 'erro');
+    /* datas com ano fora do intervalo esperado do projeto — possível troca de dígito */
+    for(const [campo, d] of [['Início previsto', r.iniPrev], ['Término previsto', r.fimPrev],
+                              ['Início real', r.iniReal], ['Término real', r.fimReal]]){
+      if(d && (d.getFullYear() < 2018 || d.getFullYear() > 2032))
+        add(r, campo, 'Data incomum', dbr(d),
+          'O ano ' + d.getFullYear() + ' é incomum para este cronograma — confira se não houve troca de dígitos.', 'atencao');
+    }
+    /* 3) área com medição muito fora da curva das demais entregas */
+    if(r.area > 0 && (r.area > limSup || r.area < limInf))
+      add(r, 'Área (m²)', 'Medição atípica', areaTxt(r.area),
+        'Esta área está bem fora do padrão das demais entregas registradas — confirme a medição.', 'atencao');
+    /* 4) município fora da lista oficial de PE / GERES incompatível com o município */
+    if(r.municipio){
+      if(!(r.municipio in MUNICIPIOS_GERES)){
+        const alvo = normNome(r.municipio);
+        let melhor = null, melhorD = 99;
+        for(const nomeOficial in MUNICIPIOS_GERES){
+          const d = levenshtein(alvo, normNome(nomeOficial));
+          if(d < melhorD){ melhorD = d; melhor = nomeOficial; }
+        }
+        if(melhor && melhorD <= 2 && melhorD > 0)
+          add(r, 'Município', 'Possível erro de digitação', r.municipio,
+            'Não encontrei “' + r.municipio + '” na lista oficial de municípios de PE — você quis dizer “' + melhor + '”?', 'erro');
+        else
+          add(r, 'Município', 'Município não reconhecido', r.municipio,
+            'Não encontrei “' + r.municipio + '” na lista oficial de municípios de Pernambuco.', 'atencao');
+      } else if(r.geres && MUNICIPIOS_GERES[r.municipio] !== r.geres){
+        add(r, 'GERES', 'GERES inconsistente', r.geres,
+          'O município “' + r.municipio + '” pertence à GERES ' + MUNICIPIOS_GERES[r.municipio] +
+          ', mas a planilha informa GERES ' + r.geres + '.', 'erro');
+      }
+    }
+    /* 5) espaçamento/formatação irregular em campos de texto livre */
+    for(const [campo, v] of [['Unidade de Saúde', r.unidade], ['Município', r.municipio],
+                              ['Descrição da entrega', r.descricao], ['Pavimento/Setor', r.setor]]){
+      if(!v) continue;
+      if(/ {2,}/.test(v))
+        add(r, campo, 'Espaçamento irregular', v, 'O texto contém espaços duplicados entre palavras.', 'atencao');
+      else if(/^\s|\s$/.test(v))
+        add(r, campo, 'Espaço extra', v, 'O texto começa ou termina com espaço em branco.', 'atencao');
+    }
+    /* 6) grafia rara dentro de campos categóricos (ex.: "Reforma" x "REFORMA" x "reforma ") */
+    for(const c of colsCateg){
+      const info = impostor[c].get(r[c]);
+      if(info)
+        add(r, ROTULOS_CAMPO[c] || c, 'Grafia inconsistente', r[c],
+          'A maioria dos registros escreve este valor como “' + info.dominante + '”, mas aqui está “' + r[c] +
+          '” (só ' + info.qtd + ' ocorrência' + (info.qtd > 1 ? 's' : '') + ' assim).', 'atencao');
+    }
+  }
+
+  _diagLinhas = LINHAS; _diagCache = problemas;
+  return problemas;
+}
+
+const ROTULO_SEV = {erro:'Erro', atencao:'Atenção'};
+const BADGE_SEV = {erro:'b-crit', atencao:'b-warn'};
+
+function estadoVazioDiag(titulo, corpo){
+  return '<div style="padding:46px 24px;text-align:center;color:var(--ink-2)">' +
+    '<div style="font-size:34px;line-height:1;margin-bottom:10px">✓</div>' +
+    '<div style="font-weight:700;color:var(--navy);font-size:15px;margin-bottom:6px">' + esc(titulo) + '</div>' +
+    '<div style="font-size:12.5px;max-width:480px;margin:0 auto">' + esc(corpo) + '</div></div>';
+}
+
+function abaErros(){
+  const problemas = diagnosticar();
+  const nErro = problemas.filter(p => p.sev === 'erro').length;
+  const nAtencao = problemas.filter(p => p.sev === 'atencao').length;
+  const unidadesAfetadas = new Set(problemas.map(p => p.unidade)).size;
+  const tipos = new Set(problemas.map(p => p.tipo)).size;
+
+  $('#sub-erros').textContent = 'Verificação automática sobre as ' + fmt(LINHAS.length) +
+    ' entregas da planilha, sem aplicar filtros · atualizado às ' + HOJE.toLocaleTimeString('pt-BR').slice(0,5);
+
+  $('#kpis-erros').innerHTML = [
+    cartao(['crit','Erros', fmt(nErro), 'precisam de correção na planilha']),
+    cartao(['warn','Pontos de atenção', fmt(nAtencao), 'vale revisar, mas não impede a leitura']),
+    cartao(['info','Unidades afetadas', fmt(unidadesAfetadas), 'de ' + fmt(new Set(LINHAS.map(r=>r.unidade)).size) + ' unidades no total']),
+    cartao(['good','Categorias verificadas', fmt(tipos), 'tipos de inconsistência encontrados'])
+  ].join('');
+
+  if(!problemas.length){
+    $('#erros-corpo').innerHTML = estadoVazioDiag('Nenhum erro encontrado',
+      'Verifiquei datas, municípios, GERES, medições de área e a grafia dos campos da planilha — tudo está dentro do padrão esperado.');
+    return;
+  }
+
+  problemas.sort((a,b) => (a.sev === b.sev ? 0 : a.sev === 'erro' ? -1 : 1) ||
+    a.unidade.localeCompare(b.unidade, 'pt-BR'));
+
+  const corpo = problemas.map(p =>
+    '<tr><td class="cen"><span class="badge ' + BADGE_SEV[p.sev] + '">' + ROTULO_SEV[p.sev] + '</span></td>' +
+    '<td class="cen"><span class="sg" style="margin:0" title="' + esc(p.unidade) + '">' + esc(p.sigla) + '</span></td>' +
+    '<td>' + esc(p.municipio) + '</td>' +
+    '<td>' + esc(p.campo) + '</td>' +
+    '<td>' + esc(p.tipo) + '</td>' +
+    '<td>' + esc(p.valor || '—') + '</td>' +
+    '<td class="cel-desc">' + esc(p.detalhe) + '</td></tr>').join('');
+
+  $('#erros-corpo').innerHTML =
+    '<div class="tabela-wrap"><table><thead><tr>' +
+    '<th class="cen">Severidade</th><th class="cen">Unidade</th><th>Município</th>' +
+    '<th>Campo</th><th>Tipo de problema</th><th>Valor encontrado</th><th>Detalhe</th>' +
+    '</tr></thead><tbody>' + corpo + '</tbody></table></div>';
+}
+
+function abaSemData(){
+  const semData = LINHAS.filter(r => !r.iniPrev && !r.fimPrev && !r.iniReal && !r.fimReal);
+  const total = LINHAS.length;
+
+  $('#sub-semdata').textContent = 'Entregas em que nenhuma das quatro datas (início/término previsto e real) foi preenchida na planilha.';
+
+  $('#kpis-semdata').innerHTML = [
+    cartao(['warn','Sem nenhuma data', fmt(semData.length), 'de ' + fmt(total) + ' entregas na planilha']),
+    cartao(['info','Participação', pc(semData.length, total), 'do total de entregas cadastradas'])
+  ].join('');
+
+  if(!semData.length){
+    $('#semdata-corpo').innerHTML = estadoVazioDiag('Todas as entregas têm ao menos uma data',
+      'Não encontrei nenhuma entrega sem nenhuma data de início ou término preenchida.');
+    return;
+  }
+
+  semData.sort((a,b) => a.unidade.localeCompare(b.unidade, 'pt-BR'));
+  const corpo = semData.map(r =>
+    '<tr><td class="cen"><span class="sg" style="margin:0" title="' + esc(r.unidade) + '">' + esc(siglaDe(r.unidade)) + '</span></td>' +
+    '<td>' + esc(r.municipio || '—') + '</td>' +
+    '<td class="cen">' + esc(r.geres || '—') + '</td>' +
+    '<td>' + esc(r.tipo || '—') + '</td>' +
+    '<td>' + esc(r.exec || r.status || '—') + '</td>' +
+    '<td class="cel-desc">' + esc(r.descricao || '—') + '</td></tr>').join('');
+
+  $('#semdata-corpo').innerHTML =
+    '<div class="tabela-wrap"><table><thead><tr>' +
+    '<th class="cen">Unidade</th><th>Município</th><th class="cen">GERES</th><th>Tipo</th><th>Situação</th><th>Descrição da entrega</th>' +
+    '</tr></thead><tbody>' + corpo + '</tbody></table></div>';
+}
+
 /* Limites do estado (bloco continental — Fernando de Noronha fica fora da vista inicial
    por estar a ~360 km da costa, mas segue desenhado no polígono da I GERES). */
 const PE_BOUNDS = [[-41.55, -9.65], [-34.55, -7.05]];
@@ -2477,10 +2745,10 @@ function abaConsulta(){
       esc(rotuloStatus(r.status)) + '</span></td>' +
     '<td class="cen"><span class="sg" style="margin:0" title="' + esc(r.unidade) + '">' + esc(r.sigla) + '</span></td>' +
     '<td class="num">' + textoPrazo(r) + '</td>' +
-    '<td class="cel-desc">' + (r.descricao ? realce(r.descricao, TERMOS) : '—') +
+    '<td class="cel-desc">' + (r.descricao ? realce(textoLimpo(r.descricao), TERMOS) : '—') +
       (r.atrasoInicio > 0 && r.grupo !== 'Em atraso'
         ? ' <span class="badge b-mut" title="Deveria ter começado e não começou">início +' + fmt(r.atrasoInicio) + 'd</span>' : '') + '</td>' +
-    '<td>' + realce(r.setor || '—', TERMOS) + '</td>' +
+    '<td>' + realce(textoLimpo(r.setor) || '—', TERMOS) + '</td>' +
     '<td>' + realce(r.tipo || '—', TERMOS) + '</td>' +
     '<td class="cen">' + esc(r.geres || '—') + '</td>' +
     '<td class="num">' + (dbr(r.iniPrev) || '—') + '</td>' +
