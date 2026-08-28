@@ -203,6 +203,31 @@ tbody tr.total-linha td{background:#eef2f8;font-weight:700;color:var(--navy);
 .dica .it{display:flex;align-items:center;gap:7px}
 .dica .sw{width:10px;height:10px;border-radius:3px;flex:0 0 10px}
 
+#mapa-busca-wrap{position:relative}
+#legenda-regioes{position:absolute;left:10px;bottom:10px;z-index:5;background:rgba(255,255,255,.95);
+  border:1px solid var(--line);border-radius:8px;padding:8px 10px;box-shadow:0 4px 14px rgba(15,39,89,.16);
+  font-size:10px;color:var(--ink-2);max-width:210px;max-height:330px;overflow:auto;pointer-events:auto}
+#legenda-regioes .lr-tit{font-weight:700;color:var(--navy);font-size:10px;margin-bottom:5px;
+  text-transform:uppercase;letter-spacing:.04em}
+#legenda-regioes .lr-it{display:flex;align-items:center;gap:6px;padding:1.2px 0;cursor:default}
+#legenda-regioes .lr-sw{width:9px;height:9px;border-radius:3px;flex:0 0 9px;border:1px solid rgba(0,0,0,.12)}
+#legenda-regioes .lr-nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}
+@media (max-width:640px){#legenda-regioes{max-width:165px;max-height:260px;font-size:9px;padding:6px 8px}}
+#mapa-lista .ms-op{cursor:pointer}
+.mk-hospital{width:26px;height:26px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(15,39,89,.4);
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;cursor:pointer}
+.mk-sem{background:#a9b4c2}
+.maplibregl-popup-content{padding:12px 14px;border-radius:9px;box-shadow:0 6px 20px rgba(15,39,89,.18);font-family:var(--font)}
+.pop-mapa h4{margin:0 0 6px;font-size:13px;color:var(--navy);font-weight:700}
+.pop-mapa .pop-mun{font-size:11.5px;color:var(--muted);margin-bottom:8px}
+.pop-mapa table{border-collapse:collapse;font-size:12px;width:100%}
+.pop-mapa td{padding:2px 0}
+.pop-mapa td.v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;padding-left:14px}
+.pop-mapa .comp{min-width:0;width:100%;height:9px;margin:8px 0 2px}
+.pop-mapa .pop-regiao{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-2);margin-bottom:2px}
+.pop-mapa .pop-regiao i{width:9px;height:9px;border-radius:3px;flex:0 0 9px;border:1px solid rgba(0,0,0,.12)}
+.pop-mapa .pop-sit{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:700;margin-bottom:8px}
+
 .sg{display:inline-block;width:78px;padding:2px 6px;margin-right:10px;border-radius:5px;
   background:#e8edf5;color:var(--navy);font-weight:700;font-size:10.5px;letter-spacing:.05em;
   text-align:center;vertical-align:1px}
@@ -297,6 +322,8 @@ code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:12px;
   .g4,.g5,.g7,.g8{grid-column:span 6}
 }
 </style>
+<link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
 </head>
 <body>
 
@@ -321,6 +348,7 @@ code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:12px;
       <button class="aba" role="tab" id="aba-pareto" aria-controls="painel-pareto" data-aba="pareto" aria-selected="false" tabindex="-1">Pareto</button>
       <button class="aba" role="tab" id="aba-unidades" aria-controls="painel-unidades" data-aba="unidades"    aria-selected="false" tabindex="-1">Unidades</button>
       <button class="aba" role="tab" id="aba-consulta" aria-controls="painel-consulta" data-aba="consulta"    aria-selected="false" tabindex="-1">Consulta</button>
+      <button class="aba" role="tab" id="aba-mapa" aria-controls="painel-mapa" data-aba="mapa"    aria-selected="false" tabindex="-1">Mapa</button>
     </div>
     <div class="estado-in">
       <span class="pill"><span class="dot" id="dot"></span><span id="estado">Sem fonte de dados</span></span>
@@ -533,6 +561,32 @@ code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:12px;
           <button class="bs" id="b-csv" style="padding:7px 14px">↓ CSV</button>
         </div>
         <div class="tabela-wrap"><table id="tab"><thead><tr></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="painel-mapa" role="tabpanel" aria-labelledby="aba-mapa" tabindex="0" data-painel="mapa" hidden>
+      <div class="card">
+        <div class="card-h" style="display:flex;flex-direction:row;gap:14px;align-items:center;flex-wrap:wrap">
+          <div style="min-width:170px;flex:1 1 auto">
+            <div class="card-t">Mapa das unidades de saúde</div>
+            <div class="card-s" id="sub-mapa">—</div>
+          </div>
+          <div class="ms" id="mapa-busca-wrap" style="min-width:260px;flex:0 0 auto">
+            <input type="text" id="mapa-busca" placeholder="Buscar unidade de saúde…" autocomplete="off"
+              style="width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:7px;
+              padding:7px 9px;font-size:13px;min-height:34px">
+            <div class="ms-pop" id="mapa-lista" hidden role="listbox" style="position:absolute;z-index:50;background:var(--surface);
+              border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(15,39,89,.14);
+              max-height:280px;overflow:auto;width:100%;margin-top:4px"></div>
+          </div>
+        </div>
+        <div class="dica" id="dica-mapa"></div>
+        <div style="padding:0 18px 18px">
+          <div id="mapa-wrap" style="position:relative;height:600px;border-radius:8px;overflow:hidden;border:1px solid var(--grid)">
+            <div id="mapa-leaflet" style="width:100%;height:100%"></div>
+            <div id="legenda-regioes"></div>
+          </div>
+        </div>
       </div>
     </section>
   </div>
@@ -1538,7 +1592,7 @@ function comRolagem(fn){
 }
 const NOME_ABA = {geral:'Visão geral', vencimentos:'Vencimentos', cronograma:'Cronograma',
                   execucao:'Execução', carteira:'Distribuição', pareto:'Pareto',
-                  unidades:'Unidades', consulta:'Consulta'};
+                  unidades:'Unidades', mapa:'Mapa', consulta:'Consulta'};
 function resumoImpressao(n){
   const f = [];
   if(F.uni.length) f.push('Unidade: ' + F.uni.join(', '));
@@ -1564,6 +1618,7 @@ function desenhar(){
   if(ABA === 'carteira')    return abaCarteira(d);
   if(ABA === 'pareto')      return abaPareto(d);
   if(ABA === 'unidades')    return abaUnidades(d);
+  if(ABA === 'mapa')        return abaMapa(d);
   if(ABA === 'consulta')    return abaConsulta();
   });
 }
@@ -2149,6 +2204,250 @@ function abaUnidades(d){
   $('#sub-unidades').textContent = 'Cada entrega entra em uma única coluna, então ' +
     'concluídas + no prazo + vencem em 30 d + em atraso + sem prazo = total. Clique no cabeçalho para reordenar.';
 }
+
+/* --- mapa --- */
+/* Coordenadas extraídas da aba "Coordenadas" da própria planilha de monitoramento
+   (mesma pasta do Google Sheets — ID 1DlqVaurOsfOO9-JRUV8myuEp-NlkiZra). */
+const COORDS = [
+  ['Hospital Agamenon Magalhães',-8.030080796,-34.90711848],
+  ['Hospital Barão De Lucena',-8.038755512,-34.93926599],
+  ['Hospital Da Restauração Governador Paulo Guerra',-8.0532051,-34.89779632],
+  ['Hospital Getúlio Vargas',-8.051059453,-34.92221562],
+  ['Hospital Otávio De Freitas',-8.086552682,-34.96173785],
+  ['Hospital Regional Do Agreste',-8.30749685,-35.96819729],
+  ['Hemope',-8.052797049,-34.8979748],
+  ['Hospital Belarmino Correia',-7.557678122,-35.00283576],
+  ['Hospital Correia Picanço',-8.03354335,-34.90499445],
+  ['Hospital da Mirueira Sanatorio Padre Anton',-7.968188862,-34.89338581],
+  ['Hospital Geral De Areias',-8.100052885,-34.92643177],
+  ['Hospital Jaboatão Prazeres',-8.166128316,-34.92360612],
+  ['Hospital Professor Agamenon Magalhães',-7.988610031,-38.29901654],
+  ['Hospital Regional Dom Moura',-8.882394504,-36.48356274],
+  ['Hospital Regional Inácio De Sá',-8.058441758,-39.11368757],
+  ['Hospital Regional José Fernandes Salsa',-7.881500715,-35.44859938],
+  ['Hospital Ulysses Pernambucano',-8.032924162,-34.90176268],
+  ['Lacen',-8.054203396,-34.89164313],
+  ['PNI',-8.047570502,-34.88939711],
+  ['Secretaria De Saúde (Fusam - Boa Vista)',-8.054359729,-34.89172925]
+];
+const COORDS_POR_NOME = {};
+COORDS.forEach(([nome,lat,lon]) => { COORDS_POR_NOME[norm(nome)] = {nome,lat,lon}; });
+
+/* Regiões de saúde (GERES) — nome popular e cor própria para cada uma das 12 regiões,
+   usadas para colorir os municípios do estado no mapa (fonte: SES-PE). */
+const GERES_INFO = {
+  'I':    {nome:'Metropolitana',            sede:'Recife',                 cor:'#3E92CC'},
+  'II':   {nome:'Mata Norte',                sede:'Limoeiro',               cor:'#2FB380'},
+  'III':  {nome:'Mata Sul',                  sede:'Palmares',               cor:'#7CC142'},
+  'IV':   {nome:'Agreste Central',           sede:'Caruaru',                cor:'#F2A93B'},
+  'V':    {nome:'Agreste Meridional',        sede:'Garanhuns',              cor:'#E4572E'},
+  'VI':   {nome:'Sertão do Moxotó',          sede:'Arcoverde',              cor:'#D6558C'},
+  'VII':  {nome:'Sertão Central',            sede:'Salgueiro',              cor:'#8E5FD9'},
+  'VIII': {nome:'Sertão do São Francisco',   sede:'Petrolina',              cor:'#5468D4'},
+  'IX':   {nome:'Sertão do Araripe',         sede:'Ouricuri',               cor:'#C24FCB'},
+  'X':    {nome:'Sertão do Pajeú',           sede:'Afogados da Ingazeira',  cor:'#A9C23F'},
+  'XI':   {nome:'Sertão do Alto Pajeú',      sede:'Serra Talhada',          cor:'#C99A2E'},
+  'XII':  {nome:'Litoral Norte',             sede:'Goiana',                 cor:'#33B1B1'}
+};
+const COR_GERES_PADRAO = '#c7cfd8';
+
+/* Limites do estado (bloco continental — Fernando de Noronha fica fora da vista inicial
+   por estar a ~360 km da costa, mas segue desenhado no polígono da I GERES). */
+const PE_BOUNDS = [[-41.55, -9.65], [-34.55, -7.05]];
+const PE_MAX_BOUNDS = [[-42.6, -10.6], [-33.4, -6.1]];
+
+function estatUnidadeMapa(d, unidade){
+  const o = {unidade, geres:'', municipio:'', area:0, total:0, conc:0, prazo:0, crit:0, atras:0, plan:0};
+  d.forEach(r => {
+    if(r.unidade !== unidade) return;
+    o.total++;
+    o[CHAVE_GRUPO[r.grupo] || 'plan']++;
+    o.area += r.area || 0;
+    if(!o.geres && r.geres) o.geres = r.geres;
+    if(!o.municipio && r.municipio) o.municipio = r.municipio;
+  });
+  return o;
+}
+
+function corMapa(o){
+  if(o.atras > 0) return '#d03b3b';
+  if(o.crit  > 0) return '#fab219';
+  if(o.prazo > 0) return '#2a78d6';
+  if(o.plan  > 0 && o.total === o.plan) return '#a9b4c2';
+  if(o.conc  > 0) return '#0ca30c';
+  return '#a9b4c2';
+}
+
+function situacaoMapa(o){
+  if(o.atras > 0) return {rot:'Com entregas em atraso', bg:'#fbe4e4', fg:'#8f1f1f'};
+  if(o.crit  > 0) return {rot:'Com prazos vencendo em 30 dias', bg:'#fdf0d2', fg:'#7a5600'};
+  if(o.prazo > 0) return {rot:'Em execução, dentro do prazo', bg:'#e3edfb', fg:'#164a86'};
+  if(o.total > 0 && o.total === o.conc) return {rot:'Todas as entregas concluídas', bg:'#dcf3dc', fg:'#0a5c0a'};
+  if(o.total > 0) return {rot:'A planejar', bg:'#edf0f4', fg:'#48546a'};
+  return {rot:'Sem intervenções no recorte atual', bg:'#edf0f4', fg:'#48546a'};
+}
+
+function popupHtmlMapa(coord, o){
+  const linha = (rot, v, cor) => v ? '<tr><td>' + esc(rot) + '</td><td class="v"' +
+    (cor ? ' style="color:' + cor + '"' : '') + '>' + fmt(v) + '</td></tr>' : '';
+  const ger = GERES_INFO[o.geres];
+  const sit = situacaoMapa(o);
+  const barra = o.total ? '<div class="comp" title="' +
+      ORDEM_COMP.filter(k => o[k]).map(k => NOME_COMP[k] + ': ' + o[k]).join(' · ') + '">' +
+      ORDEM_COMP.filter(k => o[k] > 0).map(k =>
+        '<i style="width:' + (100*o[k]/o.total).toFixed(2) + '%;background:' + COR_COMP[k] + '"></i>').join('') +
+      '</div>' : '';
+  return '<div class="pop-mapa"><h4>' + esc(coord.nome) + '</h4>' +
+    '<div class="pop-mun">' + esc(o.municipio || '—') + '</div>' +
+    (ger ? '<div class="pop-regiao"><i style="background:' + ger.cor + '"></i>' +
+      esc('GERES ' + o.geres + ' · ' + ger.nome) + '</div>' : '') +
+    '<div><span class="pop-sit" style="background:' + sit.bg + ';color:' + sit.fg + '">' + esc(sit.rot) + '</span></div>' +
+    (barra || '') +
+    '<table>' +
+      '<tr><td><b>Total de intervenções</b></td><td class="v"><b>' + fmt(o.total) + '</b></td></tr>' +
+      linha('Em atraso', o.atras, '#d03b3b') +
+      linha('Vencem em 30 dias', o.crit, '#8a6100') +
+      linha('No prazo', o.prazo, '#1a5aa8') +
+      linha('A planejar', o.plan) +
+      linha('Concluídas', o.conc, '#0a7a0a') +
+      (o.area > 0 ? '<tr><td>Área intervencionada</td><td class="v">' + areaTxt(o.area) + '</td></tr>' : '') +
+    '</table></div>';
+}
+
+function listaMapa(d){
+  return COORDS.map(([nome,lat,lon]) => {
+    const o = estatUnidadeMapa(d, nome);
+    return {nome, lat, lon, o};
+  });
+}
+
+let MAPA = null, MAPA_MARCADORES = {}, MAPA_POPUP_ABERTO = null, MAPA_REGIOES_CARREGADAS = false;
+
+function renderLegendaRegioes(){
+  const usados = [...new Set(COORDS.map(([nome]) => (COORDS_POR_NOME[norm(nome)] || {}).geres))];
+  const ordem = Object.keys(GERES_INFO);
+  $('#legenda-regioes').innerHTML = '<div class="lr-tit">Regiões de saúde</div>' +
+    ordem.map(k => '<div class="lr-it"><span class="lr-sw" style="background:' + GERES_INFO[k].cor + '"></span>' +
+      '<span class="lr-nm">' + esc('GERES ' + k + ' · ' + GERES_INFO[k].nome) + '</span></div>').join('');
+}
+
+function carregarRegioesMapa(){
+  if(MAPA_REGIOES_CARREGADAS || !MAPA) return;
+  MAPA_REGIOES_CARREGADAS = true;
+  fetch('pe-regioes-saude.geojson').then(r => r.json()).then(geo => {
+    geo.features.forEach(f => {
+      const info = GERES_INFO[f.properties.geres];
+      f.properties.cor = info ? info.cor : COR_GERES_PADRAO;
+      f.properties.rotulo = info ? ('GERES ' + f.properties.geres + ' · ' + info.nome) : f.properties.nome;
+    });
+    if(MAPA.getSource('regioes-saude')){ MAPA.getSource('regioes-saude').setData(geo); return; }
+    MAPA.addSource('regioes-saude', {type:'geojson', data: geo});
+    MAPA.addLayer({id:'regioes-fill', type:'fill', source:'regioes-saude',
+      paint:{'fill-color':['get','cor'], 'fill-opacity':0.46}});
+    MAPA.addLayer({id:'regioes-linha-mun', type:'line', source:'regioes-saude',
+      paint:{'line-color':'#ffffff', 'line-width':0.5, 'line-opacity':0.6}});
+    fetch('pe-regioes-contorno.geojson').then(r => r.json()).then(contorno => {
+      MAPA.addSource('regioes-contorno-src', {type:'geojson', data: contorno});
+      MAPA.addLayer({id:'regioes-contorno', type:'line', source:'regioes-contorno-src',
+        paint:{'line-color':'#2b3a55', 'line-width':1.8, 'line-opacity':0.55}});
+    }).catch(() => {});
+    renderLegendaRegioes();
+  }).catch(() => { MAPA_REGIOES_CARREGADAS = false; });
+}
+
+function criarMapa(){
+  if(MAPA || typeof maplibregl === 'undefined') return;
+  MAPA = new maplibregl.Map({
+    container: 'mapa-leaflet',
+    style: 'https://tiles.openfreemap.org/styles/positron',
+    bounds: PE_BOUNDS,
+    fitBoundsOptions: {padding: 14},
+    maxBounds: PE_MAX_BOUNDS,
+    minZoom: 6,
+    maxZoom: 15,
+    attributionControl: true
+  });
+  MAPA.addControl(new maplibregl.NavigationControl(), 'top-right');
+  MAPA.on('load', carregarRegioesMapa);
+}
+
+function abaMapa(d){
+  criarMapa();
+  if(!MAPA) return;
+  const itens = listaMapa(d);
+  const totalGeral = itens.reduce((s,i) => s + i.o.total, 0);
+  $('#sub-mapa').textContent = plural(itens.length, 'unidade com localização cadastrada', 'unidades com localização cadastrada') +
+    ' · ' + plural(totalGeral, 'intervenção no recorte atual', 'intervenções no recorte atual');
+  $('#dica-mapa').innerHTML = ORDEM_COMP.map(k =>
+    '<span class="it"><i class="sw" style="background:' + COR_COMP[k] + '"></i>' + NOME_COMP[k] + '</span>').join('');
+
+  const vistos = new Set();
+  itens.forEach(it => {
+    vistos.add(it.nome);
+    const raio = Math.max(22, Math.min(46, 20 + Math.round(Math.sqrt(it.o.total || 0) * 4)));
+    const cor = it.o.total ? corMapa(it.o) : '#a9b4c2';
+    let mk = MAPA_MARCADORES[it.nome];
+    if(!mk){
+      const el = document.createElement('div');
+      el.className = 'mk-hospital';
+      const popup = new maplibregl.Popup({offset: raio/2 + 6, maxWidth:'280px'});
+      mk = new maplibregl.Marker({element: el})
+        .setLngLat([it.lon, it.lat])
+        .setPopup(popup)
+        .addTo(MAPA);
+      MAPA_MARCADORES[it.nome] = mk;
+    }
+    const el = mk.getElement();
+    el.style.width = raio + 'px'; el.style.height = raio + 'px';
+    el.style.background = cor;
+    el.style.fontSize = (raio <= 24 ? 9 : 11) + 'px';
+    el.textContent = it.o.total ? fmt(it.o.total) : '';
+    el.title = it.nome + ' — ' + fmt(it.o.total) + ' intervenções';
+    mk.getPopup().setHTML(popupHtmlMapa(it, it.o));
+  });
+  Object.keys(MAPA_MARCADORES).forEach(nome => {
+    if(!vistos.has(nome)){ MAPA_MARCADORES[nome].remove(); delete MAPA_MARCADORES[nome]; }
+  });
+  setTimeout(() => { if(MAPA) MAPA.resize(); }, 60);
+}
+
+function focarHospitalMapa(nome){
+  const mk = MAPA_MARCADORES[nome];
+  if(!MAPA || !mk) return;
+  MAPA.flyTo({center: mk.getLngLat(), zoom: 13, duration: 900});
+  if(MAPA_POPUP_ABERTO && MAPA_POPUP_ABERTO !== mk) MAPA_POPUP_ABERTO.getPopup().remove();
+  setTimeout(() => { mk.togglePopup(); MAPA_POPUP_ABERTO = mk; }, 950);
+}
+
+function ligarBuscaMapa(){
+  const input = $('#mapa-busca'), lista = $('#mapa-lista');
+  if(!input || input.dataset.ligado) return;
+  input.dataset.ligado = '1';
+  const pintarBuscaMapa = () => {
+    const q = norm(input.value);
+    const itens = COORDS.filter(([nome]) => !q || norm((siglaDe(nome) + ' ' + nome)).includes(q));
+    lista.innerHTML = itens.length ? itens.map(([nome]) =>
+      '<div class="ms-op" role="option" data-nome="' + esc(nome) + '">' +
+      '<span class="sgm">' + esc(siglaDe(nome)) + '</span>' +
+      '<span class="nm">' + esc(nome) + '</span></div>').join('')
+      : '<div class="ms-vazio">nenhuma unidade encontrada</div>';
+    lista.hidden = false;
+  };
+  input.addEventListener('focus', pintarBuscaMapa);
+  input.addEventListener('input', pintarBuscaMapa);
+  input.addEventListener('keydown', e => { if(e.key === 'Escape'){ lista.hidden = true; input.blur(); } });
+  lista.addEventListener('mousedown', e => {
+    const op = e.target.closest('.ms-op'); if(!op) return;
+    e.preventDefault();
+    input.value = op.dataset.nome;
+    lista.hidden = true;
+    focarHospitalMapa(op.dataset.nome);
+  });
+  document.addEventListener('click', e => {
+    if(!e.target.closest('#mapa-busca-wrap')) lista.hidden = true;
+  });
+}
+ligarBuscaMapa();
 
 /* --- consulta --- */
 const COL_CON = [
