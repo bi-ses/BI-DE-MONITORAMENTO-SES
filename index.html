@@ -90,6 +90,9 @@ header.topo{background:#fff;padding:18px 24px 0}
 .diag-pop button:hover{background:var(--surface-2)}
 .diag-pop .n{background:var(--critical);color:#fff;border-radius:999px;font-size:10.5px;font-weight:700;padding:1px 8px;flex:0 0 auto}
 .diag-pop .n.zero{background:var(--grid);color:var(--muted)}
+.diag-top{padding:2px 12px 8px;font-size:11px;color:var(--muted);line-height:1.7}
+.diag-top b{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.diag-top .lin{display:flex;justify-content:space-between;gap:10px}
 #erro-barra{background:#fdecec;border-bottom:1px solid #f3c9c9;color:#8a1f1f;
   padding:9px 24px;font-size:12.5px;display:none}
 #erro-barra.on{display:block}
@@ -509,7 +512,9 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
         <button class="ib" id="b-diag" title="Diagnóstico de dados" aria-label="Diagnóstico de dados" aria-haspopup="true" aria-expanded="false">⚑</button>
         <div class="diag-pop" id="diag-pop" hidden role="menu">
           <button type="button" role="menuitem" data-aba="erros"><span>⚠ Erros e inconsistências</span><span class="n" id="diag-n-erros">0</span></button>
+          <div class="diag-top" id="diag-top-erros"></div>
           <button type="button" role="menuitem" data-aba="semdata"><span>📅 Intervenções sem data</span><span class="n" id="diag-n-semdata">0</span></button>
+          <div class="diag-top" id="diag-top-semdata"></div>
         </div>
       </div>
       <button class="ib" id="b-refresh" title="Atualizar agora" aria-label="Atualizar agora">↻</button>
@@ -728,6 +733,7 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
           <button class="bs" id="b-csv-erros" style="margin-left:auto;padding:7px 14px">↓ CSV para correção</button>
         </div>
         <div class="kpis" id="kpis-erros" style="padding:0 18px 16px"></div>
+        <div id="graf-erros"></div>
         <div id="erros-corpo"></div>
       </div>
     </section>
@@ -742,6 +748,7 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
           <button class="bs" id="b-csv-semdata" style="margin-left:auto;padding:7px 14px">↓ CSV para preenchimento</button>
         </div>
         <div class="kpis" id="kpis-semdata" style="padding:0 18px 16px"></div>
+        <div id="graf-semdata"></div>
         <div id="semdata-corpo"></div>
       </div>
     </section>
@@ -1182,7 +1189,29 @@ function siglaDe(nome){
   _cacheSigla.set(nome, sg);
   return sg;
 }
-const comSigla = nome => '<span class="sg">' + esc(siglaDe(nome)) + '</span>' + esc(nome);
+/* nome de exibição: corta o complemento do nome oficial, que não ajuda a identificar */
+const NOMES_CURTOS = {
+  'hospital da restauracao governador paulo guerra':'Hospital da Restauração',
+  'hospital da mirueira sanatorio padre anton':'Hospital da Mirueira',
+  'hospital da mirueira sanatorio padre antonio manoel':'Hospital da Mirueira',
+  'hospital do sertao governador eduardo campos':'Hospital do Sertão',
+  'secretaria de saude (fusam - boa vista)':'Secretaria de Saúde — Fusam',
+  'hospital professor agamenon magalhaes':'Hospital Prof. Agamenon Magalhães'
+};
+const _cacheCurto = new Map();
+function nomeCurto(nome){
+  if(_cacheCurto.has(nome)) return _cacheCurto.get(nome);
+  const k = norm(nome);
+  let n = NOMES_CURTOS[k];
+  if(!n){
+    // corta a partir de complementos que só alongam o nome
+    n = String(nome).replace(/\s+(governador|governadora|sanatorio|sanatório|prefeito|dr\.?|doutor)\s+.*$/i, '').trim();
+    if(n.length > 34) n = n.slice(0, 33).trim() + '…';
+  }
+  _cacheCurto.set(nome, n || nome);
+  return _cacheCurto.get(nome);
+}
+const comSigla = nome => '<span class="sg">' + esc(siglaDe(nome)) + '</span><span title="' + esc(nome) + '">' + esc(nomeCurto(nome)) + '</span>';
 
 /* ------------------------------------------------------------- carregamento */
 function urlLeitura(u){
@@ -1841,6 +1870,25 @@ function atualizarDiagBadges(){
   const bE = $('#diag-n-erros'), bS = $('#diag-n-semdata');
   if(bE){ bE.textContent = fmt(nDiag); bE.classList.toggle('zero', nDiag === 0); }
   if(bS){ bS.textContent = fmt(nSemData); bS.classList.toggle('zero', nSemData === 0); }
+
+  /* prévia do ranking dentro da própria bandeirinha */
+  const topo = (lista, chave) => {
+    const m = {};
+    lista.forEach(x => { const u = chave(x); m[u] = (m[u] || 0) + 1; });
+    return Object.entries(m).sort((a,b) => b[1] - a[1]).slice(0,3);
+  };
+  const pinta = (id, pares, rotulo) => {
+    const el = $(id);
+    if(!el) return;
+    el.innerHTML = pares.length
+      ? '<div style="opacity:.75;margin-bottom:2px">' + rotulo + '</div>' + pares.map(([u,n]) =>
+          '<div class="lin"><span title="' + esc(u) + '">' + esc(siglaDe(u)) + '</span><b>' + fmt(n) + '</b></div>').join('')
+      : '';
+  };
+  pinta('#diag-top-erros', topo(problemas, p => p.unidade), 'Quem mais concentra');
+  pinta('#diag-top-semdata',
+        topo(LINHAS.filter(r => !r.iniPrev && !r.fimPrev && !r.iniReal && !r.fimReal), r => r.unidade),
+        'Quem mais deixa em branco');
 }
 
 /* --- visão geral --- */
@@ -2668,6 +2716,49 @@ const notaPlanilha = n => '<div class="nota-planilha">As colunas à direita repr
 const ROTULO_SEV = {erro:'Erro', atencao:'Atenção'};
 const BADGE_SEV = {erro:'b-crit', atencao:'b-warn'};
 
+/* ranking de unidades — barra dividida entre erro e atenção, com rótulo direto */
+function graficoDiagnostico(sel, itens, chave, ehErro, titulo, legenda, corA, corB){
+  const el = $(sel);
+  if(!el) return;
+  const m = {};
+  itens.forEach(x => {
+    const u = chave(x);
+    m[u] = m[u] || {erro:0, aten:0};
+    if(ehErro(x)) m[u].erro++; else m[u].aten++;
+  });
+  const linhas = Object.entries(m).map(([u,o]) => ({u, ...o, t:o.erro + o.aten}))
+    .sort((a,b) => b.erro - a.erro || b.t - a.t).slice(0, 12);
+  if(!linhas.length){ el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="card-h" style="border-top:1px solid var(--grid)">' +
+    '<div class="card-t">' + esc(titulo) + '</div><div class="card-s">' + esc(legenda) + '</div></div>' +
+    '<div class="plot" id="' + sel.slice(1) + '-plot"></div>' +
+    '<div class="leg"><span class="it"><i class="sw" style="background:' + corA + '"></i>Erros</span>' +
+    '<span class="it"><i class="sw" style="background:' + corB + '"></i>Pontos de atenção</span></div>';
+  barrasH($(sel + '-plot'), linhas.map(l => ({
+    rot: siglaDe(l.u), v: l.t, vtxt: fmt(l.t), cor: corB, tip: l.u + ' — total de ocorrências',
+    v2: l.erro, v2txt: fmt(l.erro), cor2: corA, tip2: l.u + ' — erros que precisam de correção'
+  })), {alvo: Math.min(320, Math.max(140, linhas.length * 30 + 16)), altMax:26, aria:'ocorrências por unidade'});
+}
+/* quem mais deixa data em branco, em número e em proporção da própria carteira */
+function graficoSemData(sel, semData, base){
+  const el = $(sel);
+  if(!el) return;
+  const total = {}, faltando = {};
+  base.forEach(r => total[r.unidade] = (total[r.unidade] || 0) + 1);
+  semData.forEach(r => faltando[r.unidade] = (faltando[r.unidade] || 0) + 1);
+  const linhas = Object.entries(faltando).map(([u,n]) => ({u, n, pct: 100*n/(total[u] || n)}))
+    .sort((a,b) => b.n - a.n).slice(0, 12);
+  if(!linhas.length){ el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="card-h" style="border-top:1px solid var(--grid)">' +
+    '<div class="card-t">Unidades que mais deixam data em branco</div>' +
+    '<div class="card-s">Quantas entregas sem nenhuma data, e quanto isso representa da carteira da própria unidade</div></div>' +
+    '<div class="plot" id="' + sel.slice(1) + '-plot"></div>';
+  barrasH($(sel + '-plot'), linhas.map(l => ({
+    rot: siglaDe(l.u), v: l.n, vtxt: fmt(l.n) + '  ·  ' + fmt1(l.pct) + '% da unidade',
+    cor: 'var(--c-planejar)', tip: l.u + ' — entregas sem nenhuma data'
+  })), {alvo: Math.min(320, Math.max(140, linhas.length * 30 + 16)), altMax:26, aria:'entregas sem data por unidade'});
+}
+
 function estadoVazioDiag(titulo, corpo){
   return '<div style="padding:46px 24px;text-align:center;color:var(--ink-2)">' +
     '<div style="font-size:34px;line-height:1;margin-bottom:10px">✓</div>' +
@@ -2675,28 +2766,45 @@ function estadoVazioDiag(titulo, corpo){
     '<div style="font-size:12.5px;max-width:480px;margin:0 auto">' + esc(corpo) + '</div></div>';
 }
 
+/* O diagnóstico roda sempre sobre a planilha inteira — senão a noção de "grafia dominante"
+   mudaria conforme o filtro. O que os filtros controlam é o que aparece na lista. */
+function problemasVisiveis(){
+  const alvo = new Set(filtradas().map(r => r.linha));
+  return diagnosticar().filter(p => alvo.has(p.linha));
+}
+const recorteAtivo = () => F.uni.length || F.ger.length || F.tip.length || F.cla.length ||
+                            F.sit.length || F.bus || SO_INICIO;
+
 function abaErros(){
-  const problemas = diagnosticar();
+  const problemas = problemasVisiveis();
+  const totalGeral = diagnosticar().length;
   const nErro = problemas.filter(p => p.sev === 'erro').length;
   const nAtencao = problemas.filter(p => p.sev === 'atencao').length;
   const unidadesAfetadas = new Set(problemas.map(p => p.unidade)).size;
   const tipos = new Set(problemas.map(p => p.tipo)).size;
 
-  $('#sub-erros').textContent = 'Verificação automática sobre as ' + fmt(LINHAS.length) +
-    ' entregas da planilha, sem aplicar filtros · atualizado às ' + HOJE.toLocaleTimeString('pt-BR').slice(0,5);
+  $('#sub-erros').textContent = recorteAtivo()
+    ? plural(problemas.length, 'ocorrência no recorte filtrado', 'ocorrências no recorte filtrado') +
+      ', de ' + fmt(totalGeral) + ' na planilha inteira'
+    : 'Verificação automática sobre as ' + fmt(LINHAS.length) + ' entregas da planilha';
 
   $('#kpis-erros').innerHTML = [
     cartao(['crit','Erros', fmt(nErro), 'precisam de correção na planilha']),
     cartao(['warn','Pontos de atenção', fmt(nAtencao), 'vale revisar, mas não impede a leitura']),
-    cartao(['info','Unidades afetadas', fmt(unidadesAfetadas), 'de ' + fmt(new Set(LINHAS.map(r=>r.unidade)).size) + ' unidades no total']),
+    cartao(['info','Unidades afetadas', fmt(unidadesAfetadas), 'de ' + fmt(new Set(filtradas().map(r=>r.unidade)).size) + ' unidades no recorte']),
     cartao(['good','Categorias verificadas', fmt(tipos), 'tipos de inconsistência encontrados'])
   ].join('');
 
   if(!problemas.length){
-    $('#erros-corpo').innerHTML = estadoVazioDiag('Nenhum erro encontrado',
+    $('#graf-erros').innerHTML = '';
+    $('#erros-corpo').innerHTML = estadoVazioDiag(recorteAtivo() ? 'Nenhum erro neste recorte' : 'Nenhum erro encontrado',
       'Verifiquei datas, municípios, GERES, medições de área e a grafia dos campos da planilha — tudo está dentro do padrão esperado.');
     return;
   }
+
+  graficoDiagnostico('#graf-erros', problemas, p => p.unidade, p => p.sev === 'erro',
+    'Unidades com mais problemas', 'Ordenadas pelos erros primeiro · barra vermelha: erros que precisam de correção · barra âmbar: pontos de atenção',
+    'var(--c-atraso)', 'var(--c-critico)');
 
   problemas.sort((a,b) => (a.sev === b.sev ? 0 : a.sev === 'erro' ? -1 : 1) ||
     a.unidade.localeCompare(b.unidade, 'pt-BR'));
@@ -2720,21 +2828,27 @@ function abaErros(){
 }
 
 function abaSemData(){
-  const semData = LINHAS.filter(r => !r.iniPrev && !r.fimPrev && !r.iniReal && !r.fimReal);
-  const total = LINHAS.length;
+  const base = filtradas();
+  const semData = base.filter(r => !r.iniPrev && !r.fimPrev && !r.iniReal && !r.fimReal);
+  const total = base.length;
 
-  $('#sub-semdata').textContent = 'Entregas em que nenhuma das quatro datas (início/término previsto e real) foi preenchida na planilha.';
+  $('#sub-semdata').textContent = 'Entregas em que nenhuma das quatro datas (início/término previsto e real) foi preenchida na planilha.' +
+    (recorteAtivo() ? ' Mostrando apenas o recorte filtrado.' : '');
 
   $('#kpis-semdata').innerHTML = [
-    cartao(['warn','Sem nenhuma data', fmt(semData.length), 'de ' + fmt(total) + ' entregas na planilha']),
+    cartao(['warn','Sem nenhuma data', fmt(semData.length),
+      'de ' + fmt(total) + (recorteAtivo() ? ' entregas no recorte' : ' entregas na planilha')]),
     cartao(['info','Participação', pc(semData.length, total), 'do total de entregas cadastradas'])
   ].join('');
 
   if(!semData.length){
+    $('#graf-semdata').innerHTML = '';
     $('#semdata-corpo').innerHTML = estadoVazioDiag('Todas as entregas têm ao menos uma data',
       'Não encontrei nenhuma entrega sem nenhuma data de início ou término preenchida.');
     return;
   }
+
+  graficoSemData('#graf-semdata', semData, base);
 
   semData.sort((a,b) => a.unidade.localeCompare(b.unidade, 'pt-BR') || a.linha - b.linha);
   const corpo = semData.map(r =>
