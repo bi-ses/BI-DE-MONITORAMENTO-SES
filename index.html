@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel de Monitoramento de Entregas — SES/PE · SEINFRA</title>
+<script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <style>
 :root{
   color-scheme: light;
@@ -72,6 +73,15 @@ header.topo{background:#fff;padding:18px 24px 0}
 .ib{background:none;border:1px solid var(--line);border-radius:7px;color:var(--ink-2);
   padding:5px 10px;font-size:12.5px;white-space:nowrap}
 .ib:hover{background:var(--surface-2);color:var(--navy)}
+.ib.ativo{background:var(--navy);color:#fff;border-color:var(--navy)}
+.diag-wrap{position:relative;display:inline-flex}
+.diag-pop{position:absolute;top:calc(100% + 6px);right:0;min-width:270px;background:var(--surface);
+  border:1px solid var(--line);border-radius:9px;box-shadow:0 12px 30px rgba(15,39,89,.18);padding:6px;z-index:70}
+.diag-pop button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+  text-align:left;background:none;border:0;border-radius:6px;padding:8px 10px;font-size:12.5px;color:var(--ink);cursor:pointer;white-space:nowrap}
+.diag-pop button:hover{background:var(--surface-2)}
+.diag-pop .n{background:var(--critical);color:#fff;border-radius:999px;font-size:10.5px;font-weight:700;padding:1px 8px;flex:0 0 auto}
+.diag-pop .n.zero{background:var(--grid);color:var(--muted)}
 #erro-barra{background:#fdecec;border-bottom:1px solid #f3c9c9;color:#8a1f1f;
   padding:9px 24px;font-size:12.5px;display:none}
 #erro-barra.on{display:block}
@@ -321,6 +331,51 @@ code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:12px;
     -webkit-print-color-adjust:exact;print-color-adjust:exact}
   .g4,.g5,.g7,.g8{grid-column:span 6}
 }
+
+/* ---------- modo escuro ---------- */
+html[data-theme="dark"]{
+  color-scheme: dark;
+  --navy:#5b8fd9; --navy-2:#7aa3e0; --navy-3:#9cbbea;
+  --plane:#0f1420; --surface:#161d2c; --surface-2:#1d2637;
+  --ink:#e7ecf5; --ink-2:#aab4c8; --muted:#8b97ad;
+  --grid:#2a3348; --line:#333f58; --ring:rgba(122,163,224,.25);
+}
+html[data-theme="dark"] header.topo{background:var(--surface)}
+html[data-theme="dark"] .divisor{background:var(--grid)}
+html[data-theme="dark"] .barra{background:var(--surface)}
+html[data-theme="dark"] .dot{background:#5c6883}
+html[data-theme="dark"] #erro-barra{background:#3a1c1c;border-bottom-color:#5c2a2a;color:#ffb3b3}
+html[data-theme="dark"] #erro-barra.aviso-leve{background:#3a3312;border-bottom-color:#5c4f1f;color:#f0d98a}
+html[data-theme="dark"] .ms-btn:hover{background:var(--surface-2)}
+html[data-theme="dark"] .ms-pop{background:var(--surface);border-color:var(--line)}
+html[data-theme="dark"] .ms-acoes button:hover{background:var(--surface-2)}
+html[data-theme="dark"] .ms-op:hover,html[data-theme="dark"] .ms-op.foco{background:#233049}
+html[data-theme="dark"] .ms-op .sgm{background:#26314a;color:var(--navy-3)}
+html[data-theme="dark"] thead th{background:var(--navy-2);color:#0b1220}
+html[data-theme="dark"] tbody tr:hover{background:#233049}
+html[data-theme="dark"] .b-crit{background:#4a2323;color:#ffb3b3} html[data-theme="dark"] .b-warn{background:#463c1c;color:#f0d98a}
+html[data-theme="dark"] .b-ser{background:#43301f;color:#f2b98c}  html[data-theme="dark"] .b-info{background:#20304a;color:#a9c8f5}
+html[data-theme="dark"] .b-good{background:#1f3d24;color:#a3e0a3} html[data-theme="dark"] .b-mut{background:#252e40;color:var(--muted)}
+html[data-theme="dark"] .comp{background:var(--surface-2)}
+html[data-theme="dark"] td.zero{color:#6d7890}
+html[data-theme="dark"] tbody tr.total-linha td{background:#1d2740;color:var(--navy-3)}
+html[data-theme="dark"] #tab-uni tbody tr:hover td:first-child{background:#233049}
+html[data-theme="dark"] #tab-uni tbody tr.total-linha td:first-child{background:#1d2740}
+html[data-theme="dark"] #legenda-regioes{background:rgba(22,29,44,.95);color:var(--ink)}
+html[data-theme="dark"] .mk-hospital{border-color:#161d2c}
+html[data-theme="dark"] .mk-sem{background:#4a5468}
+html[data-theme="dark"] .gantt-eixo{background:var(--surface)}
+html[data-theme="dark"] .g-zebra{fill:#1a2233}
+html[data-theme="dark"] mark{background:#5c4f1f;color:var(--ink)}
+html[data-theme="dark"] .chip:hover{background:var(--surface-2)}
+html[data-theme="dark"] .bs:hover{background:var(--surface-2)}
+html[data-theme="dark"] .drop.hot{background:#233049}
+html[data-theme="dark"] .aviso{background:#3a3312;border-color:#5c4f1f;color:#f0d98a}
+html[data-theme="dark"] code{background:var(--surface-2)}
+html[data-theme="dark"] .ib.ativo{background:var(--navy-2);color:#0b1220;border-color:var(--navy-2)}
+html[data-theme="dark"] .diag-pop{box-shadow:0 12px 30px rgba(0,0,0,.45)}
+html[data-theme="dark"] .diag-pop .n.zero{background:var(--grid);color:var(--muted)}
+html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(--pe-azul)}
 </style>
 <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
 <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
@@ -345,15 +400,20 @@ code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:12px;
       <button class="aba" role="tab" id="aba-cronograma" aria-controls="painel-cronograma" data-aba="cronograma"  aria-selected="false" tabindex="-1">Cronograma</button>
       <button class="aba" role="tab" id="aba-execucao" aria-controls="painel-execucao" data-aba="execucao"    aria-selected="false" tabindex="-1">Execução</button>
       <button class="aba" role="tab" id="aba-carteira" aria-controls="painel-carteira" data-aba="carteira"    aria-selected="false" tabindex="-1">Distribuição</button>
-      <button class="aba" role="tab" id="aba-pareto" aria-controls="painel-pareto" data-aba="pareto" aria-selected="false" tabindex="-1">Pareto</button>
       <button class="aba" role="tab" id="aba-unidades" aria-controls="painel-unidades" data-aba="unidades"    aria-selected="false" tabindex="-1">Unidades</button>
       <button class="aba" role="tab" id="aba-consulta" aria-controls="painel-consulta" data-aba="consulta"    aria-selected="false" tabindex="-1">Consulta</button>
-      <button class="aba" role="tab" id="aba-erros" aria-controls="painel-erros" data-aba="erros"    aria-selected="false" tabindex="-1">Erros</button>
-      <button class="aba" role="tab" id="aba-semdata" aria-controls="painel-semdata" data-aba="semdata"    aria-selected="false" tabindex="-1">Sem data</button>
       <button class="aba" role="tab" id="aba-mapa" aria-controls="painel-mapa" data-aba="mapa"    aria-selected="false" tabindex="-1">Mapa</button>
     </div>
     <div class="estado-in">
       <span class="pill"><span class="dot" id="dot"></span><span id="estado">Sem fonte de dados</span></span>
+      <button class="ib" id="b-tema" title="Alternar modo escuro" aria-label="Alternar modo escuro">☾</button>
+      <div class="diag-wrap">
+        <button class="ib" id="b-diag" title="Diagnóstico de dados" aria-label="Diagnóstico de dados" aria-haspopup="true" aria-expanded="false">⚑</button>
+        <div class="diag-pop" id="diag-pop" hidden role="menu">
+          <button type="button" role="menuitem" data-aba="erros"><span>⚠ Erros e inconsistências</span><span class="n" id="diag-n-erros">0</span></button>
+          <button type="button" role="menuitem" data-aba="semdata"><span>📅 Intervenções sem data</span><span class="n" id="diag-n-semdata">0</span></button>
+        </div>
+      </div>
       <button class="ib" id="b-refresh" title="Atualizar agora" aria-label="Atualizar agora">↻</button>
       <button class="ib" id="b-cfg" title="Fonte de dados" aria-label="Fonte de dados">⚙</button>
       <button class="ib" id="b-print" title="Imprimir" aria-label="Imprimir">Imprimir</button>
@@ -381,7 +441,6 @@ code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:12px;
       <div class="f m"><label id="lb-sit">Situação</label><div class="ms" id="ms-sit"></div></div>
       <div class="f b"><label for="f-bus">Buscar</label>
         <input id="f-bus" type="search" autocomplete="off" spellcheck="false"
-          placeholder="ex.: emergência HAM · tipo:obra · &quot;sala vermelha&quot;"
           title="Várias palavras somam (todas precisam aparecer). Aspas para expressão exata. Sinal de menos para excluir. Prefixos: unidade: geres: tipo: setor: status: municipio: classificacao: perfil: desc:"></div>
       <button class="btn-limpar" id="b-limpar">Limpar</button>
     </div>
@@ -402,6 +461,30 @@ code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:12px;
             <div class="card-s" id="sub-expo">Unidades com prazos vencidos</div></div>
           <div class="plot" id="c-expo"></div>
         </div>
+        <div class="card g6">
+          <div class="card-h"><div class="card-t">Intervenções concluídas</div>
+            <div class="card-s">Por unidade, da que mais concluiu para a que menos concluiu</div></div>
+          <div class="plot" id="c-pc"></div>
+        </div>
+        <div class="card g6">
+          <div class="card-h"><div class="card-t">Intervenções concluídas por área (m²)</div>
+            <div class="card-s">Metros quadrados entregues por unidade</div></div>
+          <div class="plot" id="c-pca"></div>
+        </div>
+        <div class="card g6">
+          <div class="card-h"><div class="card-t">Intervenções atrasadas</div>
+            <div class="card-s">Por unidade, da que mais acumula atraso para a que menos acumula</div></div>
+          <div class="plot" id="c-pa"></div>
+        </div>
+        <div class="card g6">
+          <div class="card-h"><div class="card-t">Intervenções atrasadas por área (m²)</div>
+            <div class="card-s">Metros quadrados parados por unidade</div></div>
+          <div class="plot" id="c-paa"></div>
+        </div>
+      </div>
+      <div class="card" style="padding:12px 18px;font-size:12px;color:var(--ink-2)">
+        A linha mostra o <b>percentual acumulado</b> — onde ela cruza os 80% estão as unidades que
+        respondem pela maior parte do total. Barras em ordem decrescente, sem unidades zeradas.
       </div>
     </section>
 
@@ -505,35 +588,6 @@ code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:12px;
             <div class="card-s">Metros quadrados informados na planilha, em milhares</div></div>
           <div class="plot" id="c-area"></div>
         </div>
-      </div>
-    </section>
-
-    <section id="painel-pareto" role="tabpanel" aria-labelledby="aba-pareto" tabindex="0" data-painel="pareto" hidden>
-      <div class="grade">
-        <div class="card g6">
-          <div class="card-h"><div class="card-t">Intervenções concluídas</div>
-            <div class="card-s">Por unidade, da que mais concluiu para a que menos concluiu</div></div>
-          <div class="plot" id="c-pc"></div>
-        </div>
-        <div class="card g6">
-          <div class="card-h"><div class="card-t">Intervenções concluídas por área (m²)</div>
-            <div class="card-s">Metros quadrados entregues por unidade</div></div>
-          <div class="plot" id="c-pca"></div>
-        </div>
-        <div class="card g6">
-          <div class="card-h"><div class="card-t">Intervenções atrasadas</div>
-            <div class="card-s">Por unidade, da que mais acumula atraso para a que menos acumula</div></div>
-          <div class="plot" id="c-pa"></div>
-        </div>
-        <div class="card g6">
-          <div class="card-h"><div class="card-t">Intervenções atrasadas por área (m²)</div>
-            <div class="card-s">Metros quadrados parados por unidade</div></div>
-          <div class="plot" id="c-paa"></div>
-        </div>
-      </div>
-      <div class="card" style="padding:12px 18px;font-size:12px;color:var(--ink-2)">
-        A linha mostra o <b>percentual acumulado</b> — onde ela cruza os 80% estão as unidades que
-        respondem pela maior parte do total. Barras em ordem decrescente, sem unidades zeradas.
       </div>
     </section>
 
@@ -1609,6 +1663,8 @@ function trocarAba(nome, focar){
     if(sel && focar) b.focus();
   });
   $$('section[data-painel]').forEach(s => s.hidden = s.dataset.painel !== nome);
+  const diag = nome === 'erros' || nome === 'semdata';
+  $('#b-diag')?.classList.toggle('ativo', diag);
   desenhar();
 }
 function comRolagem(fn){
@@ -1617,7 +1673,7 @@ function comRolagem(fn){
   areas.forEach(([e,t,l]) => { e.scrollTop = t; e.scrollLeft = l; });
 }
 const NOME_ABA = {geral:'Visão geral', vencimentos:'Vencimentos', cronograma:'Cronograma',
-                  execucao:'Execução', carteira:'Distribuição', pareto:'Pareto',
+                  execucao:'Execução', carteira:'Distribuição',
                   unidades:'Unidades', mapa:'Mapa', consulta:'Consulta',
                   erros:'Erros', semdata:'Sem data'};
 function resumoImpressao(n){
@@ -1637,19 +1693,27 @@ function desenhar(){
   if(!LINHAS.length) return;
   const d = filtradas();
   resumoImpressao(d.length);
+  atualizarDiagBadges();
   return comRolagem(() => {
-  if(ABA === 'geral')       return abaGeral(d);
+  if(ABA === 'geral')       { abaGeral(d); return abaPareto(d); }
   if(ABA === 'vencimentos') return abaVencimentos(d);
   if(ABA === 'cronograma')  return abaGantt(d);
   if(ABA === 'execucao')    return abaExecucao(d);
   if(ABA === 'carteira')    return abaCarteira(d);
-  if(ABA === 'pareto')      return abaPareto(d);
   if(ABA === 'unidades')    return abaUnidades(d);
   if(ABA === 'mapa')        return abaMapa(d);
   if(ABA === 'consulta')    return abaConsulta();
   if(ABA === 'erros')       return abaErros();
   if(ABA === 'semdata')     return abaSemData();
   });
+}
+function atualizarDiagBadges(){
+  const problemas = diagnosticar();
+  const nDiag = problemas.length;
+  const nSemData = LINHAS.filter(r => !r.iniPrev && !r.fimPrev && !r.iniReal && !r.fimReal).length;
+  const bE = $('#diag-n-erros'), bS = $('#diag-n-semdata');
+  if(bE){ bE.textContent = fmt(nDiag); bE.classList.toggle('zero', nDiag === 0); }
+  if(bS){ bS.textContent = fmt(nSemData); bS.classList.toggle('zero', nSemData === 0); }
 }
 
 /* --- visão geral --- */
@@ -2131,15 +2195,16 @@ function pareto(el, itens, opt){
     s += '<text class="tick" x="' + cx + '" y="' + (h-mb+16) + '" text-anchor="middle" style="font-size:10px">' +
       esc(encurtar(it.rot, bw + 8, F_TIC)) + '</text>';
   });
-  s += '<polyline fill="none" stroke="#0f2759" stroke-width="1.6" points="' +
+  const corLinha = getComputedStyle(document.documentElement).getPropertyValue('--navy').trim() || '#0f2759';
+  s += '<polyline fill="none" stroke="' + corLinha + '" stroke-width="1.6" points="' +
        pontos.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ') + '"></polyline>';
   pontos.forEach(p => {
-    s += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="2.6" fill="#0f2759"></circle>';
+    s += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="2.6" fill="' + corLinha + '"></circle>';
   });
   const cruza = pontos.find(p => p[2] >= 80);
   if(cruza && itens.length > 2)
     s += '<text x="' + Math.min(larg-mr-4, cruza[0]+6) + '" y="' + (cruza[1]-8) +
-      '" style="font-size:10.5px;font-weight:700;fill:#0f2759">' + fmt1(cruza[2]) + '%</text>';
+      '" style="font-size:10.5px;font-weight:700;fill:' + corLinha + '">' + fmt1(cruza[2]) + '%</text>';
   s += '<line class="bl" x1="' + ml + '" y1="' + (h-mb+.5) + '" x2="' + (larg-mr) + '" y2="' + (h-mb+.5) + '"></line>';
   el.innerHTML = s + '</svg>';
   ligarTip(el);
@@ -2330,6 +2395,7 @@ function diagnosticar(){
   const problemas = [];
   const add = (r, campo, tipo, valor, detalhe, sev) => problemas.push({
     unidade:r.unidade, sigla:siglaDe(r.unidade), municipio:r.municipio || '—', geres:r.geres || '—',
+    descricao: r.descricao || '—', tipoEntrega: r.tipo || '—', linhaPlanilha: r.linha,
     campo, tipo, valor, detalhe, sev, linha:r.linha
   });
 
@@ -2475,6 +2541,8 @@ function abaErros(){
     '<tr><td class="cen"><span class="badge ' + BADGE_SEV[p.sev] + '">' + ROTULO_SEV[p.sev] + '</span></td>' +
     '<td class="cen"><span class="sg" style="margin:0" title="' + esc(p.unidade) + '">' + esc(p.sigla) + '</span></td>' +
     '<td>' + esc(p.municipio) + '</td>' +
+    '<td>' + esc(p.tipoEntrega) + '</td>' +
+    '<td class="cel-desc">' + esc(textoLimpo(p.descricao)) + '</td>' +
     '<td>' + esc(p.campo) + '</td>' +
     '<td>' + esc(p.tipo) + '</td>' +
     '<td>' + esc(p.valor || '—') + '</td>' +
@@ -2483,6 +2551,7 @@ function abaErros(){
   $('#erros-corpo').innerHTML =
     '<div class="tabela-wrap"><table><thead><tr>' +
     '<th class="cen">Severidade</th><th class="cen">Unidade</th><th>Município</th>' +
+    '<th>Tipo</th><th>Descrição da intervenção</th>' +
     '<th>Campo</th><th>Tipo de problema</th><th>Valor encontrado</th><th>Detalhe</th>' +
     '</tr></thead><tbody>' + corpo + '</tbody></table></div>';
 }
@@ -2789,6 +2858,39 @@ function ligarTip(el){
 
 /* --- eventos --- */
 const liga = (sel, ev, fn) => $(sel).addEventListener(ev, fn);
+
+/* modo escuro: aplica preferencia salva e alterna via botao (localStorage pode estar bloqueado no preview) */
+const temaGuardado = () => { try { return localStorage.getItem('tema'); } catch(e) { return null; } };
+const salvarTema = t => { try { localStorage.setItem('tema', t); } catch(e) {} };
+function aplicarTema(tema){
+  document.documentElement.setAttribute('data-theme', tema);
+  const b = $('#b-tema');
+  if(b){ b.textContent = tema === 'dark' ? '☀' : '☾'; b.title = tema === 'dark' ? 'Alternar modo claro' : 'Alternar modo escuro'; }
+}
+aplicarTema(temaGuardado() === 'dark' ? 'dark' : 'light');
+liga('#b-tema','click', () => {
+  const novo = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  salvarTema(novo);
+  aplicarTema(novo);
+  if(LINHAS.length) desenhar();
+});
+
+/* menu discreto de diagnostico (Erros / Sem data) */
+liga('#b-diag','click', e => {
+  e.stopPropagation();
+  const pop = $('#diag-pop'), aberto = !pop.hidden;
+  pop.hidden = aberto;
+  $('#b-diag').setAttribute('aria-expanded', String(!aberto));
+});
+$$('#diag-pop button').forEach(b => b.addEventListener('click', () => {
+  $('#diag-pop').hidden = true;
+  $('#b-diag').setAttribute('aria-expanded', 'false');
+  trocarAba(b.dataset.aba);
+}));
+document.addEventListener('click', e => {
+  if(!e.target.closest('.diag-wrap')){ const p = $('#diag-pop'); if(p && !p.hidden){ p.hidden = true; $('#b-diag')?.setAttribute('aria-expanded','false'); } }
+});
+
 $$('.aba').forEach(b => b.addEventListener('click', () => trocarAba(b.dataset.aba)));
 document.querySelector('.abas').addEventListener('keydown', e => {
   const chaves = {ArrowRight:1, ArrowLeft:-1, Home:'i', End:'f'};
