@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel de Monitoramento de Entregas — SES/PE · SEINFRA</title>
-  <link rel="icon" type="image/png" href="favicon.png">
 <script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <style>
 :root{
@@ -746,7 +745,10 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
             <div class="card-t">Intervenções sem nenhuma data registrada</div>
             <div class="card-s" id="sub-semdata">—</div>
           </div>
-          <button class="bs" id="b-csv-semdata" style="margin-left:auto;padding:7px 14px">↓ CSV para preenchimento</button>
+          <label style="margin-left:auto;font-size:12.5px;color:var(--ink-2);display:flex;gap:6px;align-items:center;white-space:nowrap">
+            <input type="checkbox" id="chk-herdadas"> mostrar as de gestão anterior
+          </label>
+          <button class="bs" id="b-csv-semdata" style="padding:7px 14px">↓ CSV para preenchimento</button>
         </div>
         <div class="kpis" id="kpis-semdata" style="padding:0 18px 16px"></div>
         <div id="graf-semdata"></div>
@@ -1111,6 +1113,12 @@ function indexar(r){
                  r.setor, r.descricao, r.status, r.exec, r.grupo, r.classif, datas].join(' '));
   r._pal = [...new Set(r._idx.split(/[^0-9a-z]+/).filter(p => p.length >= 3))];
 }
+
+/* Regra da SEINFRA: intervenção concluída e sem nenhuma data é herança de gestão anterior —
+   o registro é legítimo, então não conta como falta de preenchimento. */
+const semNenhumaData = r => !r.iniPrev && !r.fimPrev && !r.iniReal && !r.fimReal;
+const gestaoAnterior = r => semNenhumaData(r) && r.concluido;
+const faltaPreenchimento = r => semNenhumaData(r) && !r.concluido;
 
 const PASSA = ['PROJETO','AGUARDANDO PRAZO DO FISCAL','EXECUÇÃO LIBERADA','EXECUCAO LIBERADA'];
 
@@ -1867,7 +1875,7 @@ function desenhar(){
 function atualizarDiagBadges(){
   const problemas = diagnosticar();
   const nDiag = problemas.length;
-  const nSemData = LINHAS.filter(r => !r.iniPrev && !r.fimPrev && !r.iniReal && !r.fimReal).length;
+  const nSemData = LINHAS.filter(faltaPreenchimento).length;
   const bE = $('#diag-n-erros'), bS = $('#diag-n-semdata');
   if(bE){ bE.textContent = fmt(nDiag); bE.classList.toggle('zero', nDiag === 0); }
   if(bS){ bS.textContent = fmt(nSemData); bS.classList.toggle('zero', nSemData === 0); }
@@ -1887,8 +1895,7 @@ function atualizarDiagBadges(){
       : '';
   };
   pinta('#diag-top-erros', topo(problemas, p => p.unidade), 'Quem mais concentra');
-  pinta('#diag-top-semdata',
-        topo(LINHAS.filter(r => !r.iniPrev && !r.fimPrev && !r.iniReal && !r.fimReal), r => r.unidade),
+  pinta('#diag-top-semdata', topo(LINHAS.filter(faltaPreenchimento), r => r.unidade),
         'Quem mais deixa em branco');
 }
 
@@ -2830,35 +2837,48 @@ function abaErros(){
 
 function abaSemData(){
   const base = filtradas();
-  const semData = base.filter(r => !r.iniPrev && !r.fimPrev && !r.iniReal && !r.fimReal);
+  const semData = base.filter(faltaPreenchimento);
+  const herdadas = base.filter(gestaoAnterior);
   const total = base.length;
+  const mostrarHerdadas = $('#chk-herdadas') && $('#chk-herdadas').checked;
+  const lista = mostrarHerdadas ? semData.concat(herdadas) : semData;
 
-  $('#sub-semdata').textContent = 'Entregas em que nenhuma das quatro datas (início/término previsto e real) foi preenchida na planilha.' +
+  $('#sub-semdata').textContent = 'Entregas sem nenhuma das quatro datas preenchidas. As que estão como ' +
+    'CONCLUÍDO ficam de fora da conta — são de gestão anterior, não falta de preenchimento.' +
     (recorteAtivo() ? ' Mostrando apenas o recorte filtrado.' : '');
 
   $('#kpis-semdata').innerHTML = [
-    cartao(['warn','Sem nenhuma data', fmt(semData.length),
+    cartao(['warn','Falta preencher', fmt(semData.length),
       'de ' + fmt(total) + (recorteAtivo() ? ' entregas no recorte' : ' entregas na planilha')]),
-    cartao(['info','Participação', pc(semData.length, total), 'do total de entregas cadastradas'])
+    cartao(['info','Participação', pc(semData.length, total), 'do total de entregas cadastradas']),
+    cartao(['good','Gestão anterior', fmt(herdadas.length),
+      'concluídas sem data — fora da estatística'])
   ].join('');
 
-  if(!semData.length){
+  if(!lista.length){
     $('#graf-semdata').innerHTML = '';
-    $('#semdata-corpo').innerHTML = estadoVazioDiag('Todas as entregas têm ao menos uma data',
-      'Não encontrei nenhuma entrega sem nenhuma data de início ou término preenchida.');
+    $('#semdata-corpo').innerHTML = estadoVazioDiag(
+      herdadas.length ? 'Nada pendente de preenchimento' : 'Todas as entregas têm ao menos uma data',
+      herdadas.length
+        ? 'As ' + fmt(herdadas.length) + ' entregas sem data neste recorte estão como CONCLUÍDO — são de gestão anterior e não contam como falta de preenchimento.'
+        : 'Não encontrei nenhuma entrega sem nenhuma data de início ou término preenchida.');
     return;
   }
 
   graficoSemData('#graf-semdata', semData, base);
 
-  semData.sort((a,b) => a.unidade.localeCompare(b.unidade, 'pt-BR') || a.linha - b.linha);
-  const corpo = semData.map(r =>
-    '<tr><td class="num col-fixa">' + fmt(r.linha) + '</td>' +
+  lista.sort((a,b) => a.unidade.localeCompare(b.unidade, 'pt-BR') || a.linha - b.linha);
+  const corpo = lista.map(r =>
+    '<tr><td class="num col-fixa">' + fmt(r.linha) +
+      (gestaoAnterior(r) ? '<br><span class="badge b-good" title="Concluída sem data: gestão anterior">anterior</span>' : '') + '</td>' +
     '<td class="cen"><span class="sg" style="margin:0" title="' + esc(r.unidade) + '">' + esc(siglaDe(r.unidade)) + '</span></td>' +
     celulasPlanilha(r) + '</tr>').join('');
 
   $('#semdata-corpo').innerHTML =
-    notaPlanilha('As quatro colunas de data aparecem vazias — é exatamente o que falta preencher.') +
+    notaPlanilha('As quatro colunas de data aparecem vazias — é exatamente o que falta preencher.' +
+      (herdadas.length && !mostrarHerdadas
+        ? ' <b>' + fmt(herdadas.length) + '</b> entregas concluídas sem data ficaram de fora por serem de gestão anterior.'
+        : '')) +
     '<div class="tabela-wrap"><table>' + colgroupPlanilha([68, 104]) +
     '<thead><tr class="orig-cab">' +
     '<th class="num col-fixa">Linha</th><th class="cen">Unidade</th>' + cabecalhoPlanilha() +
@@ -3351,12 +3371,15 @@ liga('#b-csv-erros','click', () => {
     p.map(x => [ROTULO_SEV[x.sev], x.linha, x.campo, x.tipo, x.detalhe]
       .concat((x.linhaOriginal && x.linhaOriginal._bruto) || [])));
 });
+liga('#chk-herdadas','change', abaSemData);
 liga('#b-csv-semdata','click', () => {
-  const sd = LINHAS.filter(r => !r.iniPrev && !r.fimPrev && !r.iniReal && !r.fimReal);
+  const marcado = $('#chk-herdadas').checked;
+  const sd = filtradas().filter(r => marcado ? semNenhumaData(r) : faltaPreenchimento(r));
   if(!sd.length) return;
   baixarCSV('intervencoes-sem-data',
-    ['Linha na planilha','Sigla'].concat(CABECALHO_PLANILHA.map(c => c.rot + ' (col ' + c.col + ')')),
-    sd.map(r => [r.linha, siglaDe(r.unidade)].concat(r._bruto || [])));
+    ['Linha na planilha','Sigla','Origem'].concat(CABECALHO_PLANILHA.map(c => c.rot + ' (col ' + c.col + ')')),
+    sd.map(r => [r.linha, siglaDe(r.unidade),
+      gestaoAnterior(r) ? 'gestão anterior (concluída)' : 'falta preencher'].concat(r._bruto || [])));
 });
 
 let rzt;
