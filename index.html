@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel de Monitoramento de Entregas — SES/PE · SEINFRA</title>
-  <link rel="icon" type="image/png" href="favicon.png">
 <script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <style>
 :root{
@@ -560,6 +559,7 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
       <button class="ib" id="b-refresh" title="Atualizar agora" aria-label="Atualizar agora">↻</button>
       <button class="ib" id="b-cfg" title="Fonte de dados" aria-label="Fonte de dados">⚙</button>
       <button class="ib" id="b-print" title="Imprimir" aria-label="Imprimir">Imprimir</button>
+      <span class="pill" id="pill-conta" hidden></span>
       <button class="ib" id="b-sair" title="Encerrar o acesso" aria-label="Sair">Sair</button>
     </div>
   </div>
@@ -1160,6 +1160,12 @@ function montarBase(grade){
     base.push(r);
   }
   if(!base.length) throw new Error('a aba foi lida, mas nenhuma linha tem unidade de saúde preenchida.');
+  const sg = ESCOPO();
+  if(sg){                                  // conta de unidade: a base já chega recortada
+    const meu = base.filter(r => siglaDe(r.unidade) === sg);
+    if(!meu.length) throw new Error('a planilha não tem nenhuma entrega da unidade ' + sg + ' neste momento.');
+    return meu;
+  }
   return base;
 }
 
@@ -1685,6 +1691,10 @@ function pintarLista(m){
 let FILTROS_PERDIDOS = [];
 function montarFiltros(){
   FILTROS_PERDIDOS = [];
+  if(ESCOPO()){
+    const cx = $('#ms-uni') && $('#ms-uni').closest('.f');
+    if(cx) cx.hidden = true;               // só existe uma unidade: o seletor não serviria para nada
+  }
   MULTI.forEach(m => {
     if(!$('#' + m.id).querySelector('.ms-btn')) montaMulti(m);
     m.lista = m.valores(LINHAS);
@@ -3039,8 +3049,12 @@ function popupHtmlMapa(coord, o){
     '</table></div>';
 }
 
+const coordsVisiveis = () => {
+  const sg = ESCOPO();
+  return sg ? COORDS.filter(([nome]) => siglaDe(nome) === sg) : COORDS;
+};
 function listaMapa(d){
-  return COORDS.map(([nome,lat,lon]) => {
+  return coordsVisiveis().map(([nome,lat,lon]) => {
     const o = estatUnidadeMapa(d, nome);
     return {nome, lat, lon, o};
   });
@@ -3150,7 +3164,7 @@ function ligarBuscaMapa(){
   input.dataset.ligado = '1';
   const pintarBuscaMapa = () => {
     const q = norm(input.value);
-    const itens = COORDS.filter(([nome]) => !q || norm((siglaDe(nome) + ' ' + nome)).includes(q));
+    const itens = coordsVisiveis().filter(([nome]) => !q || norm((siglaDe(nome) + ' ' + nome)).includes(q));
     lista.innerHTML = itens.length ? itens.map(([nome]) =>
       '<div class="ms-op" role="option" data-nome="' + esc(nome) + '">' +
       '<span class="sgm">' + esc(siglaDe(nome)) + '</span>' +
@@ -3488,7 +3502,35 @@ addEventListener('resize', () => { clearTimeout(rzt); rzt = setTimeout(desenhar,
    conteúdo de quem sabe abrir o código-fonte. Para controle de acesso de verdade,
    use uma camada de autenticação na hospedagem (ex.: Cloudflare Access). */
 const ACESSO_CHAVE = 'ses-pe-painel-acesso';
-const ACESSO_HASH  = 'ec75fff66b519e29';
+/* Cada conta guarda o resumo de "usuário:senha" e a sigla que ela pode ver.
+   sigla null = acesso completo. A restrição é aplicada no carregamento dos dados:
+   a base é recortada antes de qualquer aba existir, então nada de outra unidade
+   chega às telas, ao mapa, ao diagnóstico ou às exportações. */
+const CONTAS = {
+  'ec75fff66b519e29': {u:'seinfra', sigla:null, nome:'SEINFRA — visão geral'},
+  '63377bc402d6f9f6': {u:'hr', sigla:'HR', nome:'Hospital da Restauração'},
+  'a457571091193c1d': {u:'hbl', sigla:'HBL', nome:'Hospital Barão de Lucena'},
+  '5b482b52fcb8b518': {u:'hra', sigla:'HRA', nome:'Hospital Regional do Agreste'},
+  '44a9df0a9b2e3326': {u:'ham', sigla:'HAM', nome:'Hospital Agamenon Magalhães'},
+  '7144da7ea2df0c47': {u:'hof', sigla:'HOF', nome:'Hospital Otávio de Freitas'},
+  'f3210db0a0160e4d': {u:'hgv', sigla:'HGV', nome:'Hospital Getúlio Vargas'},
+  'f0e2d5a29aa8bbbd': {u:'hris', sigla:'HRIS', nome:'Hospital Regional Inácio de Sá'},
+  'd5a4d3281fcc2cf5': {u:'hjp', sigla:'HJP', nome:'Hospital Jaboatão Prazeres'},
+  '83f1bb7e4cd8e81d': {u:'hbc', sigla:'HBC', nome:'Hospital Belarmino Correia'},
+  'e663ab49e4be898b': {u:'mirueira', sigla:'MIRUEIRA', nome:'Hospital da Mirueira'},
+  '7d03f743226f5353': {u:'hga', sigla:'HGA', nome:'Hospital Geral de Areias'},
+  '7f0b2cffbe524dc3': {u:'hrdm', sigla:'HRDM', nome:'Hospital Regional Dom Moura'},
+  'ccbd755b5dacd6df': {u:'hospam', sigla:'HOSPAM', nome:'Hospital Prof. Agamenon Magalhães'},
+  'cc610b69186b705b': {u:'hup', sigla:'HUP', nome:'Hospital Ulysses Pernambucano'},
+  '4d78bafcee1766b9': {u:'hemope', sigla:'HEMOPE', nome:'Hemope'},
+  '9aed7a4657d445b1': {u:'hcp', sigla:'HCP', nome:'Hospital Correia Picanço'},
+  'fbfeaf1ee6c48150': {u:'hjfs', sigla:'HJFS', nome:'Hospital Regional José Fernandes Salsa'},
+  '8334a46a46e08cce': {u:'lacen', sigla:'LACEN', nome:'Lacen'},
+  'd11882a1348089b1': {u:'pni', sigla:'PNI', nome:'PNI'},
+  'ffa7cc6b9a12d7dc': {u:'fusam', sigla:'FUSAM', nome:'Secretaria de Saúde — Fusam'}
+};
+let CONTA = null;                       // conta autenticada nesta aba
+const ESCOPO = () => CONTA && CONTA.sigla;   // sigla que a conta enxerga, ou null
 function selo(txt){
   const sal = 'seinfra-ses-pe-2026';
   const t = sal + txt + sal;
@@ -3502,11 +3544,23 @@ function selo(txt){
   return h1.toString(16).padStart(8,'0') + h2.toString(16).padStart(8,'0');
 }
 function autenticado(){
-  try{ return sessionStorage.getItem(ACESSO_CHAVE) === ACESSO_HASH; }catch(e){ return false; }
+  try{
+    const h = sessionStorage.getItem(ACESSO_CHAVE);
+    if(h && CONTAS[h]){ CONTA = CONTAS[h]; return true; }
+  }catch(e){}
+  return false;
 }
 function liberarPainel(){
   document.body.classList.remove('travado');
   const a = $('#acesso'); if(a) a.remove();
+  const selo = $('#pill-conta');
+  if(selo && CONTA){
+    selo.hidden = false;
+    selo.innerHTML = CONTA.sigla
+      ? '<b>' + esc(CONTA.sigla) + '</b>&nbsp;· acesso restrito a esta unidade'
+      : '<b>SEINFRA</b>&nbsp;· acesso completo';
+    selo.title = CONTA.nome;
+  }
   iniciarPainel();
 }
 function iniciarPainel(){
@@ -3539,8 +3593,10 @@ liga('#b-sair','click', () => {
     const u = $('#acesso-user').value.trim().toLowerCase();
     const sn = $('#acesso-senha').value;
     const err = $('#acesso-erro');
-    if(selo(u + ':' + sn) === ACESSO_HASH){
-      try{ sessionStorage.setItem(ACESSO_CHAVE, ACESSO_HASH); }catch(e){}
+    const h = selo(u + ':' + sn);
+    if(CONTAS[h]){
+      CONTA = CONTAS[h];
+      try{ sessionStorage.setItem(ACESSO_CHAVE, h); }catch(e){}
       liberarPainel();
     }else{
       err.textContent = 'Usuário ou senha incorretos.';
