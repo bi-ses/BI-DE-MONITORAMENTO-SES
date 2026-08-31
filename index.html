@@ -148,6 +148,13 @@ main{max-width:1500px;margin:0 auto;padding:16px 24px 34px}
 
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px}
 .kpi{padding:15px 18px 16px;position:relative;overflow:hidden}
+.kpi-botao{text-align:left;font:inherit;cursor:pointer;transition:box-shadow .12s,transform .12s}
+.kpi-botao:hover{box-shadow:0 3px 10px rgba(15,39,89,.13);transform:translateY(-1px)}
+.kpi-botao::before{content:"ver na lista";position:absolute;right:14px;top:14px;font-size:9.5px;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--muted);opacity:0;transition:opacity .12s}
+.kpi-botao:hover::before{opacity:1}
+.kpi-ativo{box-shadow:inset 0 0 0 2px var(--acc,var(--navy-3))}
+.kpi-ativo::before{content:"exibindo";opacity:1;color:var(--acc,var(--navy-3));font-weight:700}
 .kpi .rot{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 .kpi .num{font-size:34px;font-weight:700;line-height:1.08;margin-top:7px;letter-spacing:-.022em;
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -405,6 +412,7 @@ html[data-theme="dark"] .ms-acoes button:hover{background:#26314a}
 html[data-theme="dark"] .ms-op:hover,html[data-theme="dark"] .ms-op.foco{background:#26314a}
 html[data-theme="dark"] .ms-op .sgm{background:#26314a;color:var(--navy-2)}
 html[data-theme="dark"] .ms-op input{accent-color:var(--c-prazo)}
+html[data-theme="dark"] .kpi-botao:hover{box-shadow:0 3px 12px rgba(0,0,0,.5)}
 html[data-theme="dark"] #erros-corpo thead th.col-fixa,
 html[data-theme="dark"] #semdata-corpo thead th.col-fixa,
 html[data-theme="dark"] #tab thead th:first-child{background:#202b40}
@@ -745,10 +753,7 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
             <div class="card-t">Intervenções sem nenhuma data registrada</div>
             <div class="card-s" id="sub-semdata">—</div>
           </div>
-          <label style="margin-left:auto;font-size:12.5px;color:var(--ink-2);display:flex;gap:6px;align-items:center;white-space:nowrap">
-            <input type="checkbox" id="chk-herdadas"> mostrar as de gestão anterior
-          </label>
-          <button class="bs" id="b-csv-semdata" style="padding:7px 14px">↓ CSV para preenchimento</button>
+          <button class="bs" id="b-csv-semdata" style="margin-left:auto;padding:7px 14px">↓ CSV desta lista</button>
         </div>
         <div class="kpis" id="kpis-semdata" style="padding:0 18px 16px"></div>
         <div id="graf-semdata"></div>
@@ -1814,9 +1819,14 @@ function pizza(el, segs, total, termo){
   ligarTip(el);
 }
 
-const cartao = ([c,rot,n,sub]) =>
-  '<div class="card kpi ' + c + '"><div class="rot">' + esc(rot) + '</div><div class="num">' + n +
-  '</div><div class="sub">' + esc(sub) + '</div></div>';
+const cartao = ([c,rot,n,sub,acao]) => {
+  const t = acao ? 'button' : 'div';
+  const at = acao ? ' type="button" data-kpi="' + acao.id + '" aria-pressed="' + (acao.ativo ? 'true' : 'false') +
+                    '" title="' + esc(acao.dica || '') + '"' : '';
+  return '<' + t + ' class="card kpi ' + c + (acao ? ' kpi-botao' : '') + (acao && acao.ativo ? ' kpi-ativo' : '') + '"' + at +
+    '><div class="rot">' + esc(rot) + '</div><div class="num">' + n +
+    '</div><div class="sub">' + esc(sub) + '</div></' + t + '>';
+};
 
 /* ------------------------------------------------------------- abas */
 function trocarAba(nome, focar){
@@ -2748,23 +2758,28 @@ function graficoDiagnostico(sel, itens, chave, ehErro, titulo, legenda, corA, co
   })), {alvo: Math.min(320, Math.max(140, linhas.length * 30 + 16)), altMax:26, aria:'ocorrências por unidade'});
 }
 /* quem mais deixa data em branco, em número e em proporção da própria carteira */
-function graficoSemData(sel, semData, base){
+function graficoSemData(sel, lista, base, anterior){
   const el = $(sel);
   if(!el) return;
   const total = {}, faltando = {};
   base.forEach(r => total[r.unidade] = (total[r.unidade] || 0) + 1);
-  semData.forEach(r => faltando[r.unidade] = (faltando[r.unidade] || 0) + 1);
+  lista.forEach(r => faltando[r.unidade] = (faltando[r.unidade] || 0) + 1);
   const linhas = Object.entries(faltando).map(([u,n]) => ({u, n, pct: 100*n/(total[u] || n)}))
     .sort((a,b) => b.n - a.n).slice(0, 12);
   if(!linhas.length){ el.innerHTML = ''; return; }
   el.innerHTML = '<div class="card-h" style="border-top:1px solid var(--grid)">' +
-    '<div class="card-t">Unidades que mais deixam data em branco</div>' +
-    '<div class="card-s">Quantas entregas sem nenhuma data, e quanto isso representa da carteira da própria unidade</div></div>' +
-    '<div class="plot" id="' + sel.slice(1) + '-plot"></div>';
+    '<div class="card-t">' + (anterior ? 'Unidades com mais obras de gestão anterior'
+                                       : 'Unidades que mais deixam data em branco') + '</div>' +
+    '<div class="card-s">' + (anterior
+      ? 'Concluídas sem data registrada, e quanto representam da carteira da própria unidade'
+      : 'Quantas entregas sem nenhuma data, e quanto isso representa da carteira da própria unidade') +
+    '</div></div><div class="plot" id="' + sel.slice(1) + '-plot"></div>';
   barrasH($(sel + '-plot'), linhas.map(l => ({
     rot: siglaDe(l.u), v: l.n, vtxt: fmt(l.n) + '  ·  ' + fmt1(l.pct) + '% da unidade',
-    cor: 'var(--c-planejar)', tip: l.u + ' — entregas sem nenhuma data'
-  })), {alvo: Math.min(320, Math.max(140, linhas.length * 30 + 16)), altMax:26, aria:'entregas sem data por unidade'});
+    cor: anterior ? 'var(--c-concluido)' : 'var(--c-planejar)',
+    tip: l.u + (anterior ? ' — concluídas sem data (gestão anterior)' : ' — entregas sem nenhuma data')
+  })), {alvo: Math.min(320, Math.max(140, linhas.length * 30 + 16)), altMax:26,
+        aria: anterior ? 'obras de gestão anterior por unidade' : 'entregas sem data por unidade'});
 }
 
 function estadoVazioDiag(titulo, corpo){
@@ -2835,50 +2850,56 @@ function abaErros(){
     '</tr></thead><tbody>' + corpo + '</tbody></table></div>';
 }
 
+let MODO_SEMDATA = 'falta';   // 'falta' = o que precisa ser preenchido · 'anterior' = herança de gestão passada
 function abaSemData(){
   const base = filtradas();
   const semData = base.filter(faltaPreenchimento);
   const herdadas = base.filter(gestaoAnterior);
   const total = base.length;
-  const mostrarHerdadas = $('#chk-herdadas') && $('#chk-herdadas').checked;
-  const lista = mostrarHerdadas ? semData.concat(herdadas) : semData;
+  if(MODO_SEMDATA === 'anterior' && !herdadas.length && semData.length) MODO_SEMDATA = 'falta';
+  const anterior = MODO_SEMDATA === 'anterior';
+  const lista = anterior ? herdadas : semData;
 
-  $('#sub-semdata').textContent = 'Entregas sem nenhuma das quatro datas preenchidas. As que estão como ' +
-    'CONCLUÍDO ficam de fora da conta — são de gestão anterior, não falta de preenchimento.' +
-    (recorteAtivo() ? ' Mostrando apenas o recorte filtrado.' : '');
+  $('#sub-semdata').textContent = (anterior
+    ? 'Exibindo as concluídas sem data — herança de gestão anterior, fora da estatística de preenchimento.'
+    : 'Exibindo o que falta preencher. As entregas concluídas sem data são de gestão anterior e ficam em outra lista.') +
+    (recorteAtivo() ? ' Recorte filtrado.' : '') + ' Clique nos cartões para trocar de lista.';
 
   $('#kpis-semdata').innerHTML = [
     cartao(['warn','Falta preencher', fmt(semData.length),
-      'de ' + fmt(total) + (recorteAtivo() ? ' entregas no recorte' : ' entregas na planilha')]),
+      'de ' + fmt(total) + (recorteAtivo() ? ' entregas no recorte' : ' entregas na planilha'),
+      {id:'falta', ativo: !anterior, dica:'Ver só as entregas que precisam de data'}]),
     cartao(['info','Participação', pc(semData.length, total), 'do total de entregas cadastradas']),
     cartao(['good','Gestão anterior', fmt(herdadas.length),
-      'concluídas sem data — fora da estatística'])
+      'concluídas sem data — fora da estatística',
+      {id:'anterior', ativo: anterior, dica:'Ver só as herdadas de gestão anterior'}])
   ].join('');
 
   if(!lista.length){
     $('#graf-semdata').innerHTML = '';
     $('#semdata-corpo').innerHTML = estadoVazioDiag(
-      herdadas.length ? 'Nada pendente de preenchimento' : 'Todas as entregas têm ao menos uma data',
-      herdadas.length
+      anterior ? 'Nenhuma entrega de gestão anterior neste recorte'
+               : herdadas.length ? 'Nada pendente de preenchimento' : 'Todas as entregas têm ao menos uma data',
+      anterior ? 'Não há entregas concluídas sem data neste recorte.'
+      : herdadas.length
         ? 'As ' + fmt(herdadas.length) + ' entregas sem data neste recorte estão como CONCLUÍDO — são de gestão anterior e não contam como falta de preenchimento.'
         : 'Não encontrei nenhuma entrega sem nenhuma data de início ou término preenchida.');
     return;
   }
 
-  graficoSemData('#graf-semdata', semData, base);
+  graficoSemData('#graf-semdata', lista, base, anterior);
 
   lista.sort((a,b) => a.unidade.localeCompare(b.unidade, 'pt-BR') || a.linha - b.linha);
   const corpo = lista.map(r =>
-    '<tr><td class="num col-fixa">' + fmt(r.linha) +
-      (gestaoAnterior(r) ? '<br><span class="badge b-good" title="Concluída sem data: gestão anterior">anterior</span>' : '') + '</td>' +
+    '<tr><td class="num col-fixa">' + fmt(r.linha) + '</td>' +
     '<td class="cen"><span class="sg" style="margin:0" title="' + esc(r.unidade) + '">' + esc(siglaDe(r.unidade)) + '</span></td>' +
     celulasPlanilha(r) + '</tr>').join('');
 
   $('#semdata-corpo').innerHTML =
-    notaPlanilha('As quatro colunas de data aparecem vazias — é exatamente o que falta preencher.' +
-      (herdadas.length && !mostrarHerdadas
-        ? ' <b>' + fmt(herdadas.length) + '</b> entregas concluídas sem data ficaram de fora por serem de gestão anterior.'
-        : '')) +
+    notaPlanilha(anterior
+      ? 'Estas entregas estão como CONCLUÍDO e sem data: obra de gestão anterior. Não precisam de preenchimento.'
+      : 'As quatro colunas de data aparecem vazias — é exatamente o que falta preencher.' +
+        (herdadas.length ? ' Outras <b>' + fmt(herdadas.length) + '</b> concluídas sem data estão na lista de gestão anterior.' : '')) +
     '<div class="tabela-wrap"><table>' + colgroupPlanilha([68, 104]) +
     '<thead><tr class="orig-cab">' +
     '<th class="num col-fixa">Linha</th><th class="cen">Unidade</th>' + cabecalhoPlanilha() +
@@ -3371,15 +3392,20 @@ liga('#b-csv-erros','click', () => {
     p.map(x => [ROTULO_SEV[x.sev], x.linha, x.campo, x.tipo, x.detalhe]
       .concat((x.linhaOriginal && x.linhaOriginal._bruto) || [])));
 });
-liga('#chk-herdadas','change', abaSemData);
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-kpi]');
+  if(!b) return;
+  MODO_SEMDATA = b.dataset.kpi;
+  abaSemData();
+});
 liga('#b-csv-semdata','click', () => {
-  const marcado = $('#chk-herdadas').checked;
-  const sd = filtradas().filter(r => marcado ? semNenhumaData(r) : faltaPreenchimento(r));
+  const anterior = MODO_SEMDATA === 'anterior';
+  const sd = filtradas().filter(anterior ? gestaoAnterior : faltaPreenchimento);
   if(!sd.length) return;
-  baixarCSV('intervencoes-sem-data',
+  baixarCSV(anterior ? 'concluidas-gestao-anterior' : 'intervencoes-sem-data',
     ['Linha na planilha','Sigla','Origem'].concat(CABECALHO_PLANILHA.map(c => c.rot + ' (col ' + c.col + ')')),
     sd.map(r => [r.linha, siglaDe(r.unidade),
-      gestaoAnterior(r) ? 'gestão anterior (concluída)' : 'falta preencher'].concat(r._bruto || [])));
+      anterior ? 'gestão anterior (concluída)' : 'falta preencher'].concat(r._bruto || [])));
 });
 
 let rzt;
