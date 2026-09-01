@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel de Monitoramento de Entregas — SES/PE · SEINFRA</title>
-  <link rel="icon" type="image/png" href="favicon.png">
 <script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <style>
 :root{
@@ -2114,7 +2113,7 @@ function abaGeral(d){
       const o = m[k] = m[k] || {a:0, c:0};
       if(r.grupo === 'Em atraso') o.a++; else o.c++;
     });
-    const rank = Object.entries(m).sort((a,b) => (b[1].a + b[1].c) - (a[1].a + a[1].c) || b[1].a - a[1].a);
+    const rank = ordenarPavimentos(Object.entries(m));
     if(rank.length){
       $('#t-expo').textContent = 'Onde o prazo está apertado';
       $('#sub-expo').textContent = 'Pavimentos e setores com entrega vencida (vermelho) ou vencendo em 30 dias (amarelo)';
@@ -2125,7 +2124,7 @@ function abaGeral(d){
       return;
     }
     /* nada apertado: em vez de um quadro vazio, o mapa da carteira por local */
-    const todos = Object.entries(agrupa(d, setorDe)).sort((a,b) => b[1].t - a[1].t);
+    const todos = ordenarPavimentos(Object.entries(agrupa(d, setorDe)));
     $('#t-expo').textContent = 'Entregas por pavimento e setor';
     $('#sub-expo').textContent = 'Nenhum prazo vencido nem vencendo em 30 dias — a carteira por local';
     barrasH($('#c-expo'), todos.slice(0,12).map(([k,o]) => ({
@@ -2602,6 +2601,29 @@ const setorDe = r => {
 };
 const contarSetores = d => new Set(d.map(setorDe).filter(s => s !== SEM_SETOR)).size;
 
+/* Ordem de leitura de um prédio: subsolos, térreo, mezanino, pavimentos numerados,
+   cobertura — e só depois os setores que não são andar (blocos, áreas externas). */
+const ORDINAIS = {primeiro:1, segundo:2, terceiro:3, quarto:4, quinto:5, sexto:6, setimo:7,
+                  oitavo:8, nono:9, decimo:10, undecimo:11, duodecimo:12};
+function nivelPavimento(nome){
+  const t = norm(nome || '');
+  if(!t || nome === SEM_SETOR) return 9000;
+  if(/\bsubsolo|\bsubterran/.test(t)){
+    const n = (t.match(/(\d+)\s*[ºo°]?\s*(?:sub|$)/) || t.match(/subsolo\D*(\d+)/) || [])[1];
+    return -100 + (n ? -Number(n) : -1);
+  }
+  if(/\bterreo\b/.test(t)) return 0;
+  if(/\bmezanino\b/.test(t)) return 0.5;
+  const num = t.match(/(?:^|\D)(\d{1,2})\s*[ºo°]?\s*(?:pav|and|$|\W)/);
+  if(num && /pav|and|^\s*\d{1,2}\s*[ºo°]?\s*$/.test(t)) return Number(num[1]);
+  for(const p in ORDINAIS) if(new RegExp('\\b' + p + '\\b').test(t)) return ORDINAIS[p];
+  if(/\bcobert|\blaje\b|\btelhad|\bteto\b/.test(t)) return 100;
+  return 500;                                   // setor que não é andar: vai depois, em ordem alfabética
+}
+/* ordena pares [rótulo, dados] pela ordem do prédio */
+const ordenarPavimentos = pares => pares.slice().sort((a,b) =>
+  nivelPavimento(a[0]) - nivelPavimento(b[0]) || a[0].localeCompare(b[0],'pt-BR'));
+
 /* --- carteira --- */
 function agrupa(d, chave){
   const m = {};
@@ -2633,7 +2655,8 @@ function abaCarteira(d){
     ['info','Municípios', fmt(contarDistintos(d, 'municipio')), 'com entrega registrada']
   ]).map(cartao).join('');
 
-  const paraBarras = (m, pre) => Object.entries(m).sort((a,b) => b[1].t - a[1].t).map(([k,o]) => ({
+  const paraBarras = (m, pre, predio) => (predio ? ordenarPavimentos(Object.entries(m))
+      : Object.entries(m).sort((a,b) => b[1].t - a[1].t)).map(([k,o]) => ({
     rot: pre + k, v:o.t, vtxt:fmt(o.t), cor:'var(--c-prazo)', tip:pre + k + ' — total de entregas',
     v2:o.a, v2txt:fmt(o.a), cor2:'var(--c-atraso)', tip2:pre + k + ' — em atraso'
   }));
@@ -2643,7 +2666,7 @@ function abaCarteira(d){
   $('#t-geres').textContent = escopo ? 'Distribuição por pavimento/setor' : 'Distribuição por GERES';
   $('#s-geres').textContent = escopo ? 'Onde ficam as entregas dentro da unidade e quantas estão atrasadas'
                                      : 'Quantas entregas em cada regional e quantas delas estão atrasadas';
-  barrasH($('#c-geres'), paraBarras(segundo, escopo ? '' : 'GERES '),
+  barrasH($('#c-geres'), paraBarras(segundo, escopo ? '' : 'GERES ', escopo),
     {alvo:alvoLinha, altMax:36, aria: escopo ? 'entregas por pavimento ou setor' : 'entregas por GERES'});
 
   /* No acesso de uma unidade a área quase nunca é preenchida, então o espaço rende mais
@@ -2891,6 +2914,9 @@ function abaSetores(d){
   });
   const linhas = Object.values(m).map(o => Object.assign(o, {taxa: o.total ? o.conc/o.total : 0, tipos:o.tipos.size}));
   linhas.sort((a,b) => {
+    if(ordemUni.col === 'unidade')          // a coluna do local ordena pela ordem do prédio
+      return (nivelPavimento(a.unidade) - nivelPavimento(b.unidade) ||
+              a.unidade.localeCompare(b.unidade,'pt-BR')) * ordemUni.dir;
     const x = a[ordemUni.col], y = b[ordemUni.col];
     if(typeof x === 'number' && typeof y === 'number') return (x - y) * ordemUni.dir || b.total - a.total;
     return String(x).localeCompare(String(y),'pt-BR') * ordemUni.dir;
@@ -3930,6 +3956,11 @@ function liberarPainel(){
     const ab = $('#aba-unidades');
     if(ab) ab.textContent = 'Setores';
     NOME_ABA.unidades = 'Pavimentos e setores';
+    ordemUni = {col:'unidade', dir:1};        // pavimentos saem na ordem do prédio, não por quantidade
+    /* mapa do estado não diz nada para quem só enxerga um endereço */
+    const abm = $('#aba-mapa'), secm = $('#painel-mapa');
+    if(abm) abm.remove();
+    if(secm) secm.remove();
   }
   const selo = $('#pill-conta');
   if(selo && CONTA){
