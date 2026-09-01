@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel de Monitoramento de Entregas — SES/PE · SEINFRA</title>
-  <link rel="icon" type="image/png" href="favicon.png">
 <script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <style>
 :root{
@@ -1226,7 +1225,8 @@ function montarBase(grade){
 function indexar(r){
   const datas = [r.iniPrev, r.fimPrev, r.iniReal, r.fimReal].filter(Boolean).map(dbr).join(' ');
   r._idx = norm([siglaDe(r.unidade), r.unidade, r.municipio, 'geres ' + r.geres, r.tipo, r.perfil,
-                 r.setor, r.descricao, r.status, r.exec, r.grupo, r.classif, datas].join(' '));
+                 r.setor, r.descricao, r.status, r.exec, r.grupo, r.classif, datas,
+                 r.critico ? 'prazo critico vence em 30 dias' : ''].join(' '));
   r._pal = [...new Set(r._idx.split(/[^0-9a-z]+/).filter(p => p.length >= 3))];
 }
 
@@ -1237,6 +1237,17 @@ const gestaoAnterior = r => semNenhumaData(r) && r.concluido;
 const faltaPreenchimento = r => semNenhumaData(r) && !r.concluido;
 
 const PASSA = ['PROJETO','AGUARDANDO PRAZO DO FISCAL','EXECUÇÃO LIBERADA','EXECUCAO LIBERADA'];
+
+/* "No prazo", "dentro do prazo" e "prazo crítico" digitados na planilha são a mesma
+   situação de "em execução" — entram todos sob esse nome. */
+const CRITICO_FILTRO = 'PRAZO CRÍTICO (≤30d)';
+function statusPlanilha(exec){
+  const t = String(exec || '').replace('EXECUCAO','EXECUÇÃO').trim();
+  const n = norm(t);
+  if(n === 'no prazo' || n === 'dentro do prazo' || n.startsWith('prazo critico') ||
+     n === 'em andamento' || n === 'em execucao') return 'EM EXECUÇÃO';
+  return t;
+}
 
 /* Entrega com término previsto informado tem prazo em dias, mesmo quando o status de
    execução a coloca fora do fluxo normal (projeto, aguardando prazo do fiscal). */
@@ -1252,19 +1263,22 @@ function classificar(r){
   if(!r.iniReal && r.iniPrev && dias(r.iniPrev, HOJE) < 0) r.atrasoInicio = -dias(r.iniPrev, HOJE);
 
   if(PASSA.includes(r.exec)){
-    r.status = r.exec.replace('EXECUCAO','EXECUÇÃO'); r.grupo = 'A planejar';
+    r.status = statusPlanilha(r.exec); r.grupo = 'A planejar';
     prazoEmDias(r); return;                    // aguardando prazo do fiscal com data: mostra os dias
   }
-  if(!r.fimPrev){ r.status = (!r.exec || r.exec === 'A PLANEJAR') ? 'A PLANEJAR' : r.exec; r.grupo = 'A planejar'; return; }
+  if(!r.fimPrev){
+    r.status = (!r.exec || r.exec === 'A PLANEJAR') ? 'A PLANEJAR' : statusPlanilha(r.exec);
+    r.grupo = 'A planejar'; return;
+  }
 
   const restam = dias(r.fimPrev, HOJE);
   if(restam < 0){ r.status = 'ATRASADO'; r.diasAtraso = -restam; r.grupo = 'Em atraso'; return; }
   /* Regra da SEINFRA: obra com prazo em aberto está em execução — inclusive a que vence
-     nos próximos 30 dias. O prazo crítico continua marcado na própria entrega. */
+     nos próximos 30 dias, que continua marcada como prazo crítico para poder ser filtrada. */
   r.restam = restam;
   r.grupo = 'Em execução';
-  if(restam <= 30){ r.status = 'PRAZO CRÍTICO (≤30d)'; r.critico = true; }
-  else r.status = 'EM EXECUÇÃO';
+  r.status = 'EM EXECUÇÃO';
+  if(restam <= 30) r.critico = true;
 }
 
 const GRUPOS = [
@@ -1504,7 +1518,7 @@ function textoCampo(r, c){
   if(c === 'tipo')      return norm(r.tipo);
   if(c === 'setor')     return norm(r.setor);
   if(c === 'desc')      return norm(r.descricao);
-  if(c === 'status')    return norm(r.status + ' ' + r.exec + ' ' + r.grupo);
+  if(c === 'status')    return norm(r.status + ' ' + r.exec + ' ' + r.grupo + (r.critico ? ' prazo critico vence em 30 dias' : ''));
   if(c === 'municipio') return norm(r.municipio);
   if(c === 'classif')   return norm(r.classif);
   if(c === 'perfil')    return norm(r.perfil);
@@ -1658,10 +1672,13 @@ const MULTI = [
   {campo:'cla', id:'ms-cla', rot:'Todas',   vazio:'Todas as classificações',
    valores: b => [...new Set(b.map(r => r.classif).filter(Boolean))].sort((a,c) => a.localeCompare(c,'pt-BR'))},
   {campo:'sit', id:'ms-sit', rot:'Todas',   vazio:'Todas as situações',
+   /* "Prazo crítico" não é um status próprio: é um recorte de "em execução". Entra na
+      lista como opção de filtro para poder ser isolado sem sair do grupo. */
    valores: b => {
-     const ordem = ['ATRASADO','PRAZO CRÍTICO (≤30d)','EM EXECUÇÃO','A INICIAR','A PLANEJAR',
+     const ordem = ['ATRASADO','EM EXECUÇÃO',CRITICO_FILTRO,'A INICIAR','A PLANEJAR',
                     'PROJETO','AGUARDANDO PRAZO DO FISCAL','EXECUÇÃO LIBERADA','CONCLUÍDO'];
      const tem = [...new Set(b.map(r => r.status))];
+     if(b.some(r => r.critico)) tem.push(CRITICO_FILTRO);
      return ordem.filter(x => tem.includes(x)).concat(tem.filter(x => !ordem.includes(x)).sort((a,c) => a.localeCompare(c,'pt-BR')));
    }}
 ];
@@ -1816,7 +1833,7 @@ function filtradas(){
   const base = LINHAS.filter(r =>
     (!F.uni.length || F.uni.includes(r.unidade)) && (!F.ger.length || F.ger.includes(r.geres)) &&
     (!F.tip.length || F.tip.includes(r.tipo))    && (!F.cla.length || F.cla.includes(r.classif)) &&
-    (!F.sit.length || F.sit.includes(r.status)) &&
+    (!F.sit.length || F.sit.some(v => v === CRITICO_FILTRO ? r.critico : v === r.status)) &&
     (!SO_INICIO || (r.atrasoInicio > 0 && r.grupo !== 'Em atraso')));
   return aplicarBusca(base, TERMOS);
 }
@@ -2104,7 +2121,7 @@ function abaGeral(d){
 
   const nSet = contarSetores(d);
   $('#kpis').innerHTML = [
-    ['info','Quantidade de intervenções', fmt(total), ESCOPO()
+    ['info','Intervenções', fmt(total), ESCOPO()
       ? (nSet ? plural(nSet, 'pavimento/setor', 'pavimentos e setores') : 'nesta unidade de saúde')
       : plural(contarDistintos(d, 'unidade'), 'unidade de saúde', 'unidades de saúde')],
     ['good','Concluídas', fmt(conc) + '<u>' + pc(conc, total) + '</u>', 'do total monitorado'],
@@ -2319,7 +2336,7 @@ function abaVencimentos(d){
     '<td class="num">' + (dbr(r.iniPrev) || '—') + '</td>' +
     '<td class="num">' + (dbr(r.fimPrev) || '—') + '</td>' +
     '<td class="num">' + textoPrazo(r) + '</td>' +
-    '<td class="cen"><span class="badge ' + (CLASSE_STATUS[r.status] || 'b-mut') + '">' + esc(rotuloStatus(r.status)) + '</span></td></tr>'
+    '<td class="cen">' + selosStatus(r) + '</td></tr>'
   ).join('') : (TERMOS.length ? linhaVazia(8)
       : '<tr><td colspan="8" style="padding:34px;text-align:center;color:var(--muted)">Nenhuma entrega vence neste período</td></tr>');
 
@@ -2593,7 +2610,11 @@ function cabecalho(cols, ord){
     (ord.col === k ? (ord.dir > 0 ? 'ascending' : 'descending') : 'none') + '">' + esc(rot) +
     '<span class="ar" aria-hidden="true">' + (ord.col === k ? (ord.dir > 0 ? '▲' : '▼') : '⇅') + '</span></th>').join('');
 }
-const rotuloStatus = st => st === 'PRAZO CRÍTICO (≤30d)' ? '≤ 30 DIAS' : st;
+const rotuloStatus = st => st === CRITICO_FILTRO ? '≤ 30 DIAS' : st;
+/* o crítico aparece como "em execução" e ganha o selo do prazo ao lado */
+const selosStatus = r => '<span class="badge ' + (CLASSE_STATUS[r.status] || 'b-mut') + '">' +
+  esc(rotuloStatus(r.status)) + '</span>' +
+  (r.critico ? '<span class="badge b-warn" style="margin-left:4px" title="Prazo crítico: vence em 30 dias">≤ 30 D</span>' : '');
 const textoPrazo = r => r.diasAtraso > 0
   ? '<b style="color:var(--t-atraso)">' + fmt(r.diasAtraso) + ' d em atraso</b>'
   : r.concluido ? '<span style="color:var(--muted)">concluída</span>'
@@ -3662,8 +3683,7 @@ function abaConsulta(){
   } else ordenar(linhas, ordemCon);
 
   const corpo = linhas.slice(0, LIMITE_TABELA).map(r =>
-    '<tr><td class="cen col-fixa"><span class="badge ' + (CLASSE_STATUS[r.status] || 'b-mut') + '">' +
-      esc(rotuloStatus(r.status)) + '</span></td>' +
+    '<tr><td class="cen col-fixa">' + selosStatus(r) + '</td>' +
     '<td class="cen"><span class="sg" style="margin:0" title="' + esc(r.unidade) + '">' + esc(r.sigla) + '</span></td>' +
     '<td class="num">' + textoPrazo(r) +
       (r.atrasoInicio > 0 && r.grupo !== 'Em atraso'
