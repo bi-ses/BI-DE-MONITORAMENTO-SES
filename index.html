@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel de Monitoramento de Entregas — SES/PE · SEINFRA</title>
-  <link rel="icon" type="image/png" href="favicon.png">
 <script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <style>
 :root{
@@ -626,9 +625,7 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
       <div class="kpis" id="kpis"></div>
       <div class="grade">
         <div class="card g5">
-          <div class="card-h"><div class="card-t">Situação das entregas hoje</div>
-            <div class="card-s">Recalculada a partir dos prazos da planilha · <b>Em execução</b> reúne o que
-              está em obra com prazo em aberto, inclusive o que vence em 30 dias</div></div>
+          <div class="card-h"><div class="card-t">Situação das entregas hoje</div></div>
           <div class="pizza-wrap">
             <div class="pizza-svg" id="c-pizza"></div>
             <div class="pizza-leg" id="leg-pizza"></div>
@@ -2135,12 +2132,12 @@ function abaGeral(d){
       : plural(contarDistintos(d, 'unidade'), 'unidade de saúde', 'unidades de saúde')],
     ['good','Concluídas', fmt(conc) + '<u>' + pc(conc, total) + '</u>', 'do total monitorado'],
     ['info','Em execução', fmt(exec) + '<u>' + pc(exec, total) + '</u>',
-      crit ? 'inclui ' + fmt(crit) + (crit === 1 ? ' que vence' : ' que vencem') + ' em 30 dias'
+      crit ? fmt(crit) + (crit === 1 ? ' vence' : ' vencem') + ' em 30 dias'
            : 'com prazo em aberto'],
     ['crit','Em atraso', fmt(atras) + '<u>' + pc(atras, total) + '</u>',
       atras ? 'atraso médio de ' + fmt(media) + ' dias'
             : (d.some(r => r.fimPrev) ? 'nenhum prazo vencido' : 'nenhuma entrega tem término previsto')],
-    ['warn','Vencem em 30 dias', fmt(crit), 'prazo crítico — exigem atenção já'],
+    ['warn','Vencem em 30 dias', fmt(crit), 'prazo crítico'],
     ['info','A planejar', fmt(plan) + '<u>' + pc(plan, total) + '</u>', 'ainda sem prazo de término']
   ].map(cartao).join('');
 
