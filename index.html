@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel de Monitoramento de Entregas — SES/PE · SEINFRA</title>
-  <link rel="icon" type="image/png" href="favicon.png">
 <script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <style>
 :root{
@@ -22,7 +21,7 @@
   --s1:#2a78d6; --s3:#1baf7a;
 
   /* cores dos dados — redefinidas no modo escuro para manter contraste e leitura */
-  --c-atraso:#d03b3b; --c-critico:#fab219; --c-prazo:#2a78d6;
+  --c-atraso:#d03b3b; --c-atraso-2:#8c1f1f; --c-critico:#fab219; --c-prazo:#2a78d6;
   --c-planejar:#a9b4c2; --c-concluido:#0ca30c;
   --c-base:#c3ccd8; --c-apagado:#c9d3e0; --c-area:#1baf7a; --c-area-atraso:#ec835a;
   --c-curva:#0f2759; --c-geres:#c7cfd8;
@@ -110,6 +109,26 @@ main{max-width:1500px;margin:0 auto;padding:16px 24px 34px}
 
 .filtros{display:flex;flex-direction:row;gap:10px;flex-wrap:wrap;align-items:flex-end;
   padding:13px 16px;margin-bottom:14px}
+
+/* faixa de identificação da unidade — dados que valem para todas as linhas da conta
+   e por isso não fazem sentido como filtro: aparecem como informação, sem seleção */
+.ident{flex-direction:row;flex-wrap:wrap;align-items:stretch;gap:0;padding:0;margin-bottom:14px;
+  overflow:hidden}
+.ident .iu{display:flex;flex-direction:column;justify-content:center;gap:3px;padding:11px 18px;
+  border-right:1px solid var(--grid);min-width:0}
+.ident .iu:last-child{border-right:0}
+.ident .iu .r{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ident .iu .v{font-size:13.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ident .iu.pri{background:var(--surface-2);flex:1 1 250px}
+.ident .iu.pri .v{font-size:15px;font-weight:700;color:var(--navy)}
+.ident .iu .sg{display:inline-block;background:var(--navy);color:#fff;border-radius:5px;font-size:10.5px;
+  font-weight:700;letter-spacing:.05em;padding:2px 6px;margin-right:7px;vertical-align:2px}
+@media (max-width:700px){.ident .iu{flex:1 1 46%;border-bottom:1px solid var(--grid)}}
+
+/* o que só faz sentido no acesso geral × o que só faz sentido no acesso de uma unidade */
+.so-unidade{display:none}
+body.escopo .so-rede{display:none}
+body.escopo .so-unidade{display:flex}
 .f{display:flex;flex-direction:column;gap:4px;min-width:0}
 .f label{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .f select,.f input{background:var(--surface-2);border:1px solid var(--line);border-radius:7px;
@@ -410,7 +429,7 @@ html[data-theme="dark"]{
   --good:#33b45c; --warning:#f0b429; --serious:#e08a5c; --critical:#e8615c;
   --s1:#4d94e8; --s3:#2bbd8e;
 
-  --c-atraso:#e8615c; --c-critico:#f0b429; --c-prazo:#4d94e8;
+  --c-atraso:#e8615c; --c-atraso-2:#c9403c; --c-critico:#f0b429; --c-prazo:#4d94e8;
   --c-planejar:#6b7280; --c-concluido:#33b45c;
   --c-base:#5d6980; --c-apagado:#39445c; --c-area:#2bbd8e; --c-area-atraso:#e08a5c;
   --c-curva:#9cbbea; --c-geres:#59647e;
@@ -578,6 +597,7 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
   </div>
 
   <div id="painel" hidden>
+    <div class="card ident" id="ident-uni" hidden></div>
     <div class="card filtros">
       <div class="f u"><label id="lb-uni">Unidade de saúde</label><div class="ms" id="ms-uni"></div></div>
       <div class="f m"><label id="lb-ger">GERES</label><div class="ms" id="ms-ger"></div></div>
@@ -601,33 +621,58 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
             <div class="pizza-leg" id="leg-pizza"></div>
           </div>
         </div>
-        <div class="card g7">
-          <div class="card-h"><div class="card-t">Onde estão os atrasos</div>
+        <div class="card g7" id="card-expo">
+          <div class="card-h"><div class="card-t" id="t-expo">Onde estão os atrasos</div>
             <div class="card-s" id="sub-expo">Unidades com prazos vencidos</div></div>
           <div class="plot" id="c-expo"></div>
         </div>
-        <div class="card g6">
+        <div class="card g6 so-rede">
           <div class="card-h"><div class="card-t">Intervenções concluídas</div>
             <div class="card-s">Por unidade, da que mais concluiu para a que menos concluiu</div></div>
           <div class="plot" id="c-pc"></div>
         </div>
-        <div class="card g6">
+        <div class="card g6 so-rede">
           <div class="card-h"><div class="card-t">Intervenções concluídas por área (m²)</div>
             <div class="card-s">Metros quadrados entregues por unidade</div></div>
           <div class="plot" id="c-pca"></div>
         </div>
-        <div class="card g6">
+        <div class="card g6 so-rede">
           <div class="card-h"><div class="card-t">Intervenções atrasadas</div>
             <div class="card-s">Por unidade, da que mais acumula atraso para a que menos acumula</div></div>
           <div class="plot" id="c-pa"></div>
         </div>
-        <div class="card g6">
+        <div class="card g6 so-rede">
           <div class="card-h"><div class="card-t">Intervenções atrasadas por área (m²)</div>
             <div class="card-s">Metros quadrados parados por unidade</div></div>
           <div class="plot" id="c-paa"></div>
         </div>
+
+        <div class="card g6 so-unidade" id="card-u-tipo">
+          <div class="card-h"><div class="card-t">Entregas por tipo de serviço</div>
+            <div class="card-s">Quantas de cada tipo e quantas delas estão com o prazo vencido</div></div>
+          <div class="plot" id="c-u-tipo"></div>
+          <div class="leg"><span class="it"><i class="sw" style="background:var(--c-prazo)"></i>Total</span>
+            <span class="it"><i class="sw" style="background:var(--c-atraso)"></i>Em atraso</span></div>
+        </div>
+        <div class="card g6 so-unidade" id="card-u-top">
+          <div class="card-h"><div class="card-t" id="t-u-top">Maiores atrasos</div>
+            <div class="card-s" id="sub-u-top">—</div></div>
+          <div class="plot" id="c-u-top"></div>
+        </div>
+        <div class="card g7 so-unidade" id="card-u-ritmo">
+          <div class="card-h"><div class="card-t">Ritmo de entrega</div>
+            <div class="card-s">Concluídas por mês (barra) e o que ainda vence em cada mês (linha)</div></div>
+          <div class="plot" id="c-u-ritmo"></div>
+          <div class="leg"><span class="it"><i class="sw" style="background:var(--c-concluido)"></i>Concluídas no mês</span>
+            <span class="it"><i class="sw" style="background:var(--c-critico)"></i>Vencem no mês</span></div>
+        </div>
+        <div class="card g5 so-unidade" id="card-u-faixa">
+          <div class="card-h"><div class="card-t">Há quanto tempo os prazos estão vencidos</div>
+            <div class="card-s" id="sub-u-faixa">—</div></div>
+          <div class="plot" id="c-u-faixa"></div>
+        </div>
       </div>
-      <div class="card" style="padding:12px 18px;font-size:12px;color:var(--ink-2)">
+      <div class="card so-rede" style="padding:12px 18px;font-size:12px;color:var(--ink-2)">
         A linha mostra o <b>percentual acumulado</b> — onde ela cruza os 80% estão as unidades que
         respondem pela maior parte do total. Barras em ordem decrescente, sem unidades zeradas.
       </div>
@@ -722,23 +767,24 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
             <span class="it"><i class="sw" style="background:var(--critical)"></i>Em atraso</span></div>
         </div>
         <div class="card g6">
-          <div class="card-h"><div class="card-t">Distribuição por GERES</div>
-            <div class="card-s">Quantas entregas em cada regional e quantas delas estão atrasadas</div></div>
+          <div class="card-h"><div class="card-t" id="t-geres">Distribuição por GERES</div>
+            <div class="card-s" id="s-geres">Quantas entregas em cada regional e quantas delas estão atrasadas</div></div>
           <div class="plot" id="c-geres"></div>
           <div class="leg"><span class="it"><i class="sw" style="background:var(--s1)"></i>Total</span>
             <span class="it"><i class="sw" style="background:var(--critical)"></i>Em atraso</span></div>
         </div>
         <div class="card g12">
-          <div class="card-h"><div class="card-t">Área intervencionada por tipo de serviço</div>
-            <div class="card-s">Metros quadrados informados na planilha, em milhares</div></div>
+          <div class="card-h"><div class="card-t" id="t-area">Área intervencionada por tipo de serviço</div>
+            <div class="card-s" id="s-area">Metros quadrados informados na planilha, em milhares</div></div>
           <div class="plot" id="c-area"></div>
+          <div class="leg" id="leg-area" hidden></div>
         </div>
       </div>
     </section>
 
     <section id="painel-unidades" role="tabpanel" aria-labelledby="aba-unidades" tabindex="0" data-painel="unidades" hidden>
       <div class="card">
-        <div class="card-h"><div class="card-t">Como está cada unidade de saúde</div>
+        <div class="card-h"><div class="card-t" id="t-unidades">Como está cada unidade de saúde</div>
           <div class="card-s" id="sub-unidades">—</div></div>
         <div class="dica" id="dica-uni"></div>
         <div class="tabela-wrap"><table id="tab-uni"><thead><tr></tr></thead><tbody></tbody></table></div>
@@ -1399,6 +1445,7 @@ function aplicar(base, origem){
   pararRetentativa();
   $('#erro-barra').classList.remove('on');
   $('#vazio').hidden = true; $('#painel').hidden = false;
+  mapearSetores();
   montarFiltros();
   montarVocabulario();
   marcarChips();
@@ -1689,10 +1736,42 @@ function pintarLista(m){
   }).join('') : '<div class="ms-vazio">nada encontrado</div>';
 }
 
+/* Numa conta de unidade vários campos são iguais em todas as linhas — marcar não muda nada.
+   Em vez de um seletor inútil, a informação aparece explícita na faixa de identificação. */
+function montarIdentidade(){
+  const cx = $('#ident-uni');
+  if(!cx) return;
+  if(!ESCOPO()){ cx.hidden = true; return; }
+  const um = campo => {
+    const v = [...new Set(LINHAS.map(r => (r[campo] || '').trim()).filter(Boolean))];
+    return v.length === 1 ? v[0] : null;
+  };
+  const nome = LINHAS[0] ? LINHAS[0].unidade : CONTA.nome;
+  const ger = um('geres'), mun = um('municipio'), cla = um('classif'), per = um('perfil');
+  const setores = contarSetores(LINHAS);
+  const info = [
+    ['Unidade de saúde', '<span class="sg">' + esc(siglaDe(nome)) + '</span>' + esc(nomeCurto(nome)), 'pri', nome]
+  ];
+  if(mun) info.push(['Município', esc(mun), '', mun]);
+  if(ger) info.push(['GERES', esc('GERES ' + ger) + (GERES_INFO[ger] ? ' · ' + esc(GERES_INFO[ger].nome) : ''), '',
+                     'Gerência Regional de Saúde ' + ger]);
+  if(cla) info.push(['Classificação', esc(cla), '', cla]);
+  if(per) info.push(['Perfil assistencial', esc(per), '', per]);
+  const tip = um('tipo');
+  if(tip) info.push(['Tipo de entrega', esc(tip), '', 'todas as entregas desta unidade são desse tipo']);
+  info.push(['Carteira monitorada', fmt(LINHAS.length) + ' <span style="font-weight:400;color:var(--muted)">entregas' +
+    (setores ? ' · ' + fmt(setores) + (setores === 1 ? ' setor' : ' setores') : '') + '</span>', '',
+    'total de intervenções desta unidade na planilha']);
+  cx.innerHTML = info.map(([r,v,c,t]) => '<div class="iu ' + c + '" title="' + esc(t) + '">' +
+    '<span class="r">' + esc(r) + '</span><span class="v">' + v + '</span></div>').join('');
+  cx.hidden = false;
+}
+
 let FILTROS_PERDIDOS = [];
 function montarFiltros(){
   FILTROS_PERDIDOS = [];
-  if(ESCOPO()){
+  const escopo = ESCOPO();
+  if(escopo){
     const cx = $('#ms-uni') && $('#ms-uni').closest('.f');
     if(cx) cx.hidden = true;               // só existe uma unidade: o seletor não serviria para nada
   }
@@ -1702,8 +1781,15 @@ function montarFiltros(){
     const perdidos = F[m.campo].filter(v => !m.lista.includes(v));
     if(perdidos.length){ FILTROS_PERDIDOS = FILTROS_PERDIDOS.concat(perdidos); }
     F[m.campo] = F[m.campo].filter(v => m.lista.includes(v));
+    /* campo com uma única opção numa conta de unidade: vira informação, não seleção */
+    if(escopo && m.campo !== 'uni'){
+      const cx = $('#' + m.id).closest('.f');
+      if(cx && m.lista.length <= 1){ cx.hidden = true; F[m.campo] = []; }
+      else if(cx) cx.hidden = false;
+    }
     pintarLista(m); rotuloMulti(m);
   });
+  montarIdentidade();
   if(FILTROS_PERDIDOS.length)
     avisar('O recorte foi ampliado: ' + FILTROS_PERDIDOS.map(v => '“' + v + '”').join(', ') +
            ' não existe mais na planilha e saiu do filtro.');
@@ -1783,13 +1869,14 @@ function ticksInteiros(max, alvo){
 
 function colunas(el, cols, opt){
   opt = opt || {};
-  if(!cols.some(c => c.v > 0)){
+  const linha = opt.linha || null;        // série secundária desenhada como linha, mesma escala
+  if(!cols.some(c => c.v > 0) && !(linha && linha.some(p => p.v > 0))){
     el.innerHTML = '<div class="sem" style="min-height:230px;display:flex;align-items:center;justify-content:center">' +
       esc(opt.vazio || 'Sem vencimentos no recorte atual') + '</div>';
     return;
   }
   const larg = Math.max(320, Math.floor(el.clientWidth) || 700), h = opt.altura || 280;
-  const max = Math.max(1, ...cols.map(c => c.v));
+  const max = Math.max(1, ...cols.map(c => c.v), ...(linha ? linha.map(p => p.v) : []));
   const ticks = ticksInteiros(max, 4), topo = ticks[ticks.length-1];
   const ml = Math.ceil(larguraTexto(fmt(topo), F_TIC)) + 14, mr = 12, mt = 22, mb = 40;
   const bw = (larg - ml - mr) / cols.length;
@@ -1821,6 +1908,18 @@ function colunas(el, cols, opt){
     s += '<text class="tick" x="' + cx + '" y="' + (h-mb+18) + '" text-anchor="middle">' +
          esc(encurtar(c.rot, bw + 6, F_TIC)) + '</text>';
   });
+  if(linha){
+    const cor = opt.corLinha || 'var(--c-critico)';
+    const pts = linha.map((p,k) => [ml + k*bw + bw/2, y(p.v)]);
+    s += '<polyline fill="none" stroke="' + cor + '" stroke-width="2" stroke-linejoin="round" points="' +
+         pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ') + '"></polyline>';
+    linha.forEach((p,k) => {
+      s += '<circle class="mark" cx="' + pts[k][0].toFixed(1) + '" cy="' + pts[k][1].toFixed(1) + '" r="4" fill="' + cor +
+           '" stroke="var(--surface)" stroke-width="1.5" data-t="' + esc(p.tip || p.rot || '') +
+           '" data-v="' + esc(p.vtxt || fmt(p.v)) + '"><title>' + esc((p.tip || '') + ': ' + (p.vtxt || fmt(p.v))) +
+           '</title></circle>';
+    });
+  }
   s += '<line class="bl" x1="' + ml + '" y1="' + (h-mb+.5) + '" x2="' + (larg-mr) + '" y2="' + (h-mb+.5) + '"></line>';
   el.innerHTML = s + '</svg>';
   ligarTip(el);
@@ -1920,6 +2019,7 @@ const NOME_ABA = {geral:'Visão geral', vencimentos:'Vencimentos', cronograma:'C
                   erros:'Erros', semdata:'Sem data'};
 function resumoImpressao(n){
   const f = [];
+  if(ESCOPO() && LINHAS.length) f.push('Unidade: ' + nomeCurto(LINHAS[0].unidade) + ' (' + ESCOPO() + ')');
   if(F.uni.length) f.push('Unidade: ' + F.uni.join(', '));
   if(F.ger.length) f.push('GERES: ' + F.ger.join(', '));
   if(F.tip.length) f.push('Tipo: ' + F.tip.join(', '));
@@ -1937,7 +2037,7 @@ function desenhar(){
   resumoImpressao(d.length);
   atualizarDiagBadges();
   return comRolagem(() => {
-  if(ABA === 'geral')       { abaGeral(d); return abaPareto(d); }
+  if(ABA === 'geral')       { abaGeral(d); return ESCOPO() ? abaGeralUnidade(d) : abaPareto(d); }
   if(ABA === 'vencimentos') return abaVencimentos(d);
   if(ABA === 'cronograma')  return abaGantt(d);
   if(ABA === 'execucao')    return abaExecucao(d);
@@ -1984,8 +2084,11 @@ function abaGeral(d){
   const lista = d.filter(r => r.grupo === 'Em atraso');
   const media = lista.length ? Math.round(lista.reduce((s,r) => s + r.diasAtraso, 0) / lista.length) : 0;
 
+  const nSet = contarSetores(d);
   $('#kpis').innerHTML = [
-    ['info','Quantidade de intervenções', fmt(total), plural(contarDistintos(d, 'unidade'), 'unidade de saúde', 'unidades de saúde')],
+    ['info','Quantidade de intervenções', fmt(total), ESCOPO()
+      ? (nSet ? plural(nSet, 'pavimento/setor', 'pavimentos e setores') : 'nesta unidade de saúde')
+      : plural(contarDistintos(d, 'unidade'), 'unidade de saúde', 'unidades de saúde')],
     ['good','Concluídas', fmt(conc) + '<u>' + pc(conc, total) + '</u>', 'do total monitorado'],
     ['crit','Em atraso', fmt(atras) + '<u>' + pc(atras, total) + '</u>',
       atras ? 'atraso médio de ' + fmt(media) + ' dias'
@@ -2000,6 +2103,36 @@ function abaGeral(d){
     '<span class="it"><i class="sw" style="background:' + x.cor + '"></i><span>' + esc(x.nome) +
     '</span><b>' + fmt(x.v) + '</b><span class="pc">' + pc(x.v, total) + '</span></span>').join('');
 
+  if(ESCOPO()){
+    /* numa unidade só, "onde" deixa de ser o hospital e passa a ser o pavimento/setor —
+       e o que importa é onde o prazo aperta, não a carteira inteira (essa fica em Distribuição) */
+    const m = {};
+    d.forEach(r => {
+      if(r.grupo !== 'Em atraso' && r.grupo !== 'Vence em 30 dias') return;
+      const k = setorDe(r);
+      const o = m[k] = m[k] || {a:0, c:0};
+      if(r.grupo === 'Em atraso') o.a++; else o.c++;
+    });
+    const rank = Object.entries(m).sort((a,b) => (b[1].a + b[1].c) - (a[1].a + a[1].c) || b[1].a - a[1].a);
+    if(rank.length){
+      $('#t-expo').textContent = 'Onde o prazo está apertado';
+      $('#sub-expo').textContent = 'Pavimentos e setores com entrega vencida (vermelho) ou vencendo em 30 dias (amarelo)';
+      barrasH($('#c-expo'), rank.slice(0,12).map(([k,o]) => ({
+        rot:k, v:o.a + o.c, vtxt:fmt(o.a + o.c), cor:'var(--c-critico)', tip:k + ' — vencidas + vencendo em 30 dias',
+        v2:o.a, v2txt:fmt(o.a), cor2:'var(--c-atraso)', tip2:k + ' — já com o prazo vencido'
+      })), {alvo:300, altMax:26, aria:'prazos apertados por pavimento ou setor'});
+      return;
+    }
+    /* nada apertado: em vez de um quadro vazio, o mapa da carteira por local */
+    const todos = Object.entries(agrupa(d, setorDe)).sort((a,b) => b[1].t - a[1].t);
+    $('#t-expo').textContent = 'Entregas por pavimento e setor';
+    $('#sub-expo').textContent = 'Nenhum prazo vencido nem vencendo em 30 dias — a carteira por local';
+    barrasH($('#c-expo'), todos.slice(0,12).map(([k,o]) => ({
+      rot:k, v:o.t, vtxt:fmt(o.t), cor:'var(--c-prazo)', tip:k + ' — entregas'
+    })), {alvo:300, altMax:26, aria:'entregas por pavimento ou setor'});
+    return;
+  }
+  $('#t-expo').textContent = 'Onde estão os atrasos';
   const porUni = {};
   lista.forEach(r => porUni[r.unidade] = (porUni[r.unidade] || 0) + 1);
   const rank = Object.entries(porUni).sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0],'pt-BR'));
@@ -2009,6 +2142,91 @@ function abaGeral(d){
   barrasH($('#c-expo'), rank.slice(0,10).map(([u,v]) => ({
     rot:siglaDe(u), v, vtxt:fmt(v), cor:'var(--c-atraso)', tip:u + ' — entregas em atraso'
   })), {alvo:300, altMax:26, aria:'atrasos por unidade'});
+}
+
+/* --- visão geral de uma única unidade: no lugar dos Paretos entre hospitais,
+       o que a própria unidade precisa enxergar da sua carteira --- */
+function abaGeralUnidade(d){
+  const atras = d.filter(r => r.grupo === 'Em atraso');
+
+  // 1. por tipo de serviço, com a parcela vencida
+  const tipos = Object.entries(agrupa(d, 'tipo')).sort((a,b) => b[1].t - a[1].t);
+  barrasH($('#c-u-tipo'), tipos.map(([k,o]) => ({
+    rot:k, v:o.t, vtxt:fmt(o.t), cor:'var(--c-prazo)', tip:k + ' — total de entregas',
+    v2:o.a, v2txt:fmt(o.a), cor2:'var(--c-atraso)', tip2:k + ' — em atraso'
+  })), {alvo: Math.min(300, Math.max(150, tipos.length*42 + 16)), altMax:34, aria:'entregas por tipo de serviço'});
+
+  // 2. a fila de trabalho da unidade: o que está mais atrasado ou, se nada estourou, o que vem primeiro
+  const rotEntrega = r => r.descricao || r.setor || r.tipo || 'entrega sem descrição';
+  const dicaEntrega = r => (r.setor ? r.setor + ' · ' : '') + (r.descricao || r.tipo);
+  let top, itensTop;
+  if(atras.length){
+    top = atras.slice().sort((a,b) => b.diasAtraso - a.diasAtraso).slice(0,8);
+    $('#t-u-top').textContent = 'Maiores atrasos';
+    $('#sub-u-top').textContent = atras.length > 8
+      ? 'As 8 entregas mais atrasadas, de ' + fmt(atras.length) + ' com prazo vencido'
+      : 'Entregas com prazo vencido, da mais antiga para a mais recente';
+    itensTop = top.map(r => ({rot:rotEntrega(r), v:r.diasAtraso, vtxt:fmt(r.diasAtraso) + ' d',
+      cor:'var(--c-atraso)', tip: dicaEntrega(r) + (r.fimPrev ? ' — vencia em ' + dbr(r.fimPrev) : '')}));
+  }else{
+    top = d.filter(r => !r.concluido && r.restam != null).sort((a,b) => a.restam - b.restam).slice(0,8);
+    $('#t-u-top').textContent = 'Próximas entregas a vencer';
+    $('#sub-u-top').textContent = top.length
+      ? 'Quantos dias faltam para o término previsto de cada uma'
+      : 'Nenhuma entrega com término previsto em aberto';
+    itensTop = top.map(r => ({rot:rotEntrega(r), v:r.restam, vtxt:fmt(r.restam) + ' d',
+      cor: r.restam <= 30 ? 'var(--c-critico)' : 'var(--c-prazo)',
+      tip: dicaEntrega(r) + (r.fimPrev ? ' — vence em ' + dbr(r.fimPrev) : '')}));
+  }
+  barrasH($('#c-u-top'), itensTop, {alvo: Math.max(150, Math.min(300, itensTop.length*40 + 20)),
+    altMax:26, aria:'fila de entregas por prazo'});
+
+  // 3. ritmo: o que foi entregue mês a mês e o que vence adiante
+  const mes = i => {
+    const ini = new Date(HOJE.getFullYear(), HOJE.getMonth() + i, 1);
+    return {ini, fim:new Date(HOJE.getFullYear(), HOJE.getMonth() + i + 1, 0),
+      rot: ini.toLocaleDateString('pt-BR',{month:'short'}).replace('.','') + '/' + String(ini.getFullYear()).slice(2),
+      nome: ini.toLocaleDateString('pt-BR',{month:'long', year:'numeric'})};
+  };
+  const janela = Array.from({length:12}, (_,i) => mes(i - 8));   // 8 meses atrás → 3 à frente
+  const conc = janela.map(m => ({v:0, rot:m.rot, tip:'Concluídas em ' + m.nome, cor:'var(--c-concluido)'}));
+  const venc = janela.map(m => ({v:0, rot:m.rot, tip:'Vencem em ' + m.nome}));
+  d.forEach(r => {
+    if(r.fimReal){ const k = janela.findIndex(m => r.fimReal >= m.ini && r.fimReal <= m.fim); if(k >= 0) conc[k].v++; }
+    if(!r.concluido && r.fimPrev){ const k = janela.findIndex(m => r.fimPrev >= m.ini && r.fimPrev <= m.fim); if(k >= 0) venc[k].v++; }
+  });
+  colunas($('#c-u-ritmo'), conc, {altura:300, linha:venc, corLinha:'var(--c-critico)',
+    aria:'entregas concluídas e vencimentos por mês',
+    vazio:'Sem conclusões nem vencimentos entre 8 meses atrás e 3 meses à frente'});
+
+  // 4. há quanto tempo o prazo estourou
+  const faixas = FAIXAS.slice().reverse().map(f => ({rot:f.rot, v:0}));   // do menor para o maior atraso
+  atras.forEach(r => { const f = faixaDe(r.diasAtraso); const i = faixas.findIndex(x => x.rot === f.rot); if(i >= 0) faixas[i].v++; });
+  const cores = ['var(--c-critico)','var(--c-area-atraso)','var(--c-atraso)','var(--c-atraso-2)'];
+  const medio = atras.length ? Math.round(atras.reduce((s,r) => s + r.diasAtraso, 0) / atras.length) : 0;
+  const pior = atras.length ? Math.max(...atras.map(r => r.diasAtraso)) : 0;
+  $('#sub-u-faixa').textContent = atras.length
+    ? fmt(atras.length) + ' vencidas · média de ' + fmt(medio) + ' dias · pior caso ' + fmt(pior) + ' dias'
+    : 'Nada vencido no recorte atual';
+  barrasH($('#c-u-faixa'), faixas.map((f,i) => ({
+    rot:f.rot, v:f.v, vtxt:fmt(f.v), cor:cores[i],
+    tip:f.rot + ' — entregas nessa faixa de atraso'
+  })), {alvo:240, altMax:34, aria:'atraso por faixa de tempo'});
+
+  /* unidade pequena não precisa de quadro vazio: some com o que não tem o que mostrar
+     e redistribui a largura dos que sobraram */
+  const temRitmo = conc.some(x => x.v > 0) || venc.some(x => x.v > 0);
+  const mostrar = [['#card-u-tipo', tipos.length > 0, 6], ['#card-u-top', itensTop.length > 0, 6],
+                   ['#card-u-ritmo', temRitmo, 7], ['#card-u-faixa', atras.length > 0, 5]];
+  mostrar.forEach(([sel, ok]) => { const el = $(sel); if(el) el.hidden = !ok; });
+  const vivos = mostrar.filter(x => x[1]);
+  const LARGURAS = {1:[12], 2:[6,6], 3:[6,6,12], 4:[6,6,7,5]};
+  const larguras = LARGURAS[vivos.length] || [];
+  vivos.forEach(([sel], i) => {
+    const el = $(sel); if(!el || !larguras[i]) return;
+    el.classList.remove('g5','g6','g7','g12');
+    el.classList.add('g' + larguras[i]);
+  });
 }
 
 /* --- vencimentos --- */
@@ -2361,11 +2579,33 @@ const textoPrazo = r => r.grupo === 'Em atraso'
   : r.restam == null ? '<span style="color:var(--muted)">sem prazo</span>'
   : 'em ' + fmt(r.restam) + ' d';
 
+/* Pavimento/setor vem digitado à mão ("TÉRREO" e "Térreo" na mesma unidade). Para os
+   gráficos, o que difere só em caixa ou espaço é o mesmo lugar: agrupa pela forma
+   normalizada e mostra a grafia mais usada na planilha. */
+const SEM_SETOR = '— sem pavimento/setor informado';
+let SETOR_ROTULO = {};
+function mapearSetores(){
+  const cont = {};
+  LINHAS.forEach(r => {
+    const k = norm(r.setor || ''); if(!k) return;
+    const raw = r.setor.trim().replace(/\s+/g, ' ');
+    (cont[k] = cont[k] || {})[raw] = (cont[k][raw] || 0) + 1;
+  });
+  SETOR_ROTULO = {};
+  for(const k in cont)
+    SETOR_ROTULO[k] = Object.entries(cont[k]).sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0],'pt-BR'))[0][0];
+}
+const setorDe = r => {
+  const k = norm(r.setor || '');
+  return k ? (SETOR_ROTULO[k] || r.setor.trim()) : SEM_SETOR;
+};
+const contarSetores = d => new Set(d.map(setorDe).filter(s => s !== SEM_SETOR)).size;
+
 /* --- carteira --- */
 function agrupa(d, chave){
   const m = {};
   d.forEach(r => {
-    const k = (r[chave] || '—').trim() || '—';
+    const k = typeof chave === 'function' ? chave(r) : ((r[chave] || '—').trim() || '—');
     m[k] = m[k] || {t:0, a:0, area:0};
     m[k].t++; m[k].area += r.area;
     if(r.grupo === 'Em atraso') m[k].a++;
@@ -2375,28 +2615,100 @@ function agrupa(d, chave){
 function abaCarteira(d){
   const area = d.reduce((s,r) => s + r.area, 0);
   const comArea = d.filter(r => r.area > 0).length;
-  const tipos = agrupa(d, 'tipo'), geres = agrupa(d, 'geres');
+  const escopo = ESCOPO();
+  const tipos = agrupa(d, 'tipo');
+  const segundo = agrupa(d, escopo ? setorDe : 'geres');   // numa unidade só, GERES é sempre a mesma
 
-  $('#kpis-carteira').innerHTML = [
+  $('#kpis-carteira').innerHTML = (escopo ? [
+    ['info','Intervenções', fmt(d.length), 'no recorte atual'],
+    ['info','Tipos de serviço', fmt(Object.keys(tipos).filter(k => k !== '—').length), 'modalidades de entrega registradas'],
+    ['info','Pavimentos e setores', fmt(contarSetores(d)), 'locais alcançados pelas entregas'],
+    ['info','Área intervencionada', fmt1(area/1000) + '<u>mil m²</u>',
+      comArea ? fmt(comArea) + ' entregas com área informada' : 'nenhuma entrega tem a área preenchida']
+  ] : [
     ['info','Área intervencionada', fmt1(area/1000) + '<u>mil m²</u>', fmt(comArea) + ' entregas com área informada'],
     ['info','Tipos de serviço', fmt(Object.keys(tipos).filter(k => k !== '—').length), 'modalidades de entrega registradas'],
-    ['info','Regionais alcançadas', fmt(Object.keys(geres).filter(k => k !== '—').length), 'GERES com entregas monitoradas'],
+    ['info','Regionais alcançadas', fmt(Object.keys(segundo).filter(k => k !== '—').length), 'GERES com entregas monitoradas'],
     ['info','Municípios', fmt(contarDistintos(d, 'municipio')), 'com entrega registrada']
-  ].map(cartao).join('');
+  ]).map(cartao).join('');
 
   const paraBarras = (m, pre) => Object.entries(m).sort((a,b) => b[1].t - a[1].t).map(([k,o]) => ({
     rot: pre + k, v:o.t, vtxt:fmt(o.t), cor:'var(--c-prazo)', tip:pre + k + ' — total de entregas',
     v2:o.a, v2txt:fmt(o.a), cor2:'var(--c-atraso)', tip2:pre + k + ' — em atraso'
   }));
-  const nMax = Math.max(Object.keys(tipos).length, Object.keys(geres).length, 1);
+  const nMax = Math.max(Object.keys(tipos).length, Object.keys(segundo).length, 1);
   const alvoLinha = Math.min(310, Math.max(150, nMax * 42 + 16));
-  barrasH($('#c-tipo'),  paraBarras(tipos, ''),      {alvo:alvoLinha, altMax:36, aria:'entregas por tipo de serviço'});
-  barrasH($('#c-geres'), paraBarras(geres, 'GERES '), {alvo:alvoLinha, altMax:36, aria:'entregas por GERES'});
+  barrasH($('#c-tipo'),  paraBarras(tipos, ''), {alvo:alvoLinha, altMax:36, aria:'entregas por tipo de serviço'});
+  $('#t-geres').textContent = escopo ? 'Distribuição por pavimento/setor' : 'Distribuição por GERES';
+  $('#s-geres').textContent = escopo ? 'Onde ficam as entregas dentro da unidade e quantas estão atrasadas'
+                                     : 'Quantas entregas em cada regional e quantas delas estão atrasadas';
+  barrasH($('#c-geres'), paraBarras(segundo, escopo ? '' : 'GERES '),
+    {alvo:alvoLinha, altMax:36, aria: escopo ? 'entregas por pavimento ou setor' : 'entregas por GERES'});
 
+  /* No acesso de uma unidade a área quase nunca é preenchida, então o espaço rende mais
+     mostrando a composição de cada tipo de serviço por situação. */
+  if(escopo){
+    $('#t-area').textContent = 'Situação de cada tipo de serviço';
+    $('#s-area').textContent = 'Cada barra é 100% do tipo, repartida pela situação de hoje';
+    barrasComposicao($('#c-area'), Object.entries(agrupaGrupo(d, 'tipo')).sort((a,b) => b[1].total - a[1].total));
+    $('#leg-area').innerHTML = ORDEM_COMP.map(k =>
+      '<span class="it"><i class="sw" style="background:' + COR_COMP[k] + '"></i>' + NOME_COMP[k] + '</span>').join('');
+    $('#leg-area').hidden = false;
+    return;
+  }
+  $('#t-area').textContent = 'Área intervencionada por tipo de serviço';
+  $('#s-area').textContent = 'Metros quadrados informados na planilha, em milhares';
+  $('#leg-area').hidden = true;
   const areas = Object.entries(tipos).filter(([,o]) => o.area > 0).sort((a,b) => b[1].area - a[1].area);
   barrasH($('#c-area'), areas.map(([k,o]) => ({
     rot:k, v:o.area, vtxt:areaTxt(o.area), cor:'var(--c-area)', tip:k + ' — área informada'
   })), {alvo: Math.max(140, areas.length*40 + 16), altMax:32, aria:'área por tipo de serviço'});
+}
+
+/* agrupa contando cada entrega no seu grupo de situação — usado nas barras de composição */
+function agrupaGrupo(d, chave){
+  const m = {};
+  d.forEach(r => {
+    const k = typeof chave === 'function' ? chave(r) : ((r[chave] || '—').trim() || '—');
+    const o = m[k] = m[k] || {total:0, conc:0, prazo:0, crit:0, atras:0, plan:0};
+    o.total++; o[CHAVE_GRUPO[r.grupo] || 'plan']++;
+  });
+  return m;
+}
+/* barras horizontais 100% empilhadas: a linha inteira é o total daquela categoria */
+function barrasComposicao(el, itens){
+  if(!itens.length){
+    el.innerHTML = '<div class="sem" style="min-height:140px;display:flex;align-items:center;' +
+      'justify-content:center">Sem registros no recorte atual</div>';
+    return;
+  }
+  const larg = Math.max(280, Math.floor(el.clientWidth) || 460);
+  const gap = 12, alt = 26, n = itens.length;
+  const altura = n * (alt + gap) - gap + 16;
+  const larguraRot = Math.ceil(Math.min(larg*0.34, Math.max(...itens.map(([k]) => larguraTexto(k, F_ROT)))));
+  const x0 = larguraRot + 12, larguraVal = 44, x1 = larg - larguraVal;
+  let s = '<svg width="' + larg + '" height="' + altura + '" viewBox="0 0 ' + larg + ' ' + altura +
+    '" role="img" aria-label="' + esc('composição por situação: ' + itens.map(([k,o]) =>
+      k + ' ' + o.total).join('; ')) + '">';
+  itens.forEach(([k,o], i) => {
+    const y = 8 + i * (alt + gap);
+    const rot = encurtar(k, larguraRot, F_ROT);
+    s += '<g class="linha"><rect class="faixa-hover" x="0" y="' + (y-4) + '" width="' + larg + '" height="' + (alt+8) + '" rx="4"></rect>';
+    s += '<text class="clab" x="' + (x0-10) + '" y="' + (y + alt/2 + 4) + '" text-anchor="end">' + esc(rot) +
+         (rot === k ? '' : '<title>' + esc(k) + '</title>') + '</text>';
+    let x = x0;
+    ORDEM_COMP.filter(c => o[c] > 0).forEach(c => {
+      const w = (x1 - x0) * o[c] / o.total;
+      s += '<rect class="mark" x="' + x.toFixed(1) + '" y="' + y + '" width="' + Math.max(1.5, w - 1).toFixed(1) +
+           '" height="' + alt + '" rx="3" fill="' + COR_COMP[c] + '" data-t="' + esc(k + ' — ' + NOME_COMP[c]) +
+           '" data-v="' + esc(fmt(o[c]) + ' de ' + fmt(o.total) + ' · ' + pc(o[c], o.total)) + '"><title>' +
+           esc(k + ' — ' + NOME_COMP[c] + ': ' + o[c]) + '</title></rect>';
+      x += w;
+    });
+    s += '<text class="vlab" x="' + (x1 + 8) + '" y="' + (y + alt/2 + 4) + '">' + fmt(o.total) + '</text></g>';
+  });
+  el.innerHTML = s + '</svg>';
+  ligarTip(el);
 }
 
 /* --- Pareto: barras em ordem decrescente + curva de percentual acumulado ---
@@ -2509,6 +2821,7 @@ const NOME_COMP = {atras:'Em atraso', crit:'Vencem em 30 dias', prazo:'No prazo'
 let ordemUni = {col:'atras', dir:-1};
 
 function abaUnidades(d){
+  if(ESCOPO()) return abaSetores(d);
   const m = {};
   d.forEach(r => {
     const o = m[r.unidade] = m[r.unidade] ||
@@ -2555,8 +2868,65 @@ function abaUnidades(d){
     : (TERMOS.length ? linhaVazia(9)
        : '<tr><td colspan="9" style="padding:34px;text-align:center;color:var(--muted)">Sem unidades no recorte atual</td></tr>');
 
+  $('#t-unidades').textContent = 'Como está cada unidade de saúde';
   $('#sub-unidades').textContent = 'Cada entrega entra em uma única coluna, então ' +
     'concluídas + no prazo + vencem em 30 d + em atraso + sem prazo = total. Clique no cabeçalho para reordenar.';
+}
+
+/* Numa conta de unidade a tabela de unidades teria uma linha só. O mesmo quadro passa a
+   abrir a unidade por dentro: cada pavimento/setor com a sua situação. */
+const COL_SET = [
+  ['unidade','Pavimento / setor',''], ['tipos','Tipos','cen'], ['total','Total','num'],
+  ['conc','Concluídas','num'], ['prazo','No prazo','num'], ['crit','Vencem em 30 d','num'],
+  ['atras','Em atraso','num'], ['plan','Sem prazo','num'], ['taxa','Composição','']
+];
+function abaSetores(d){
+  const m = {};
+  d.forEach(r => {
+    const k = setorDe(r);
+    const o = m[k] = m[k] || {unidade:k, tipos:new Set(), total:0, conc:0, prazo:0, crit:0, atras:0, plan:0};
+    o.total++; o[CHAVE_GRUPO[r.grupo] || 'plan']++;
+    if(r.tipo) o.tipos.add(r.tipo);
+  });
+  const linhas = Object.values(m).map(o => Object.assign(o, {taxa: o.total ? o.conc/o.total : 0, tipos:o.tipos.size}));
+  linhas.sort((a,b) => {
+    const x = a[ordemUni.col], y = b[ordemUni.col];
+    if(typeof x === 'number' && typeof y === 'number') return (x - y) * ordemUni.dir || b.total - a.total;
+    return String(x).localeCompare(String(y),'pt-BR') * ordemUni.dir;
+  });
+
+  $('#dica-uni').innerHTML = ORDEM_COMP.map(k =>
+    '<span class="it"><i class="sw" style="background:' + COR_COMP[k] + '"></i>' + NOME_COMP[k] + '</span>').join('');
+  document.querySelector('#tab-uni thead tr').innerHTML = cabecalho(COL_SET, ordemUni);
+
+  const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' + (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') +
+    '>' + fmt(v) + '</td>';
+  const barra = o => '<div class="comp" title="' +
+      ORDEM_COMP.filter(k => o[k]).map(k => NOME_COMP[k] + ': ' + o[k]).join(' · ') + '">' +
+      ORDEM_COMP.filter(k => o[k] > 0).map(k =>
+        '<i style="width:' + (100*o[k]/o.total).toFixed(2) + '%;background:' + COR_COMP[k] + '"></i>').join('') +
+      '</div>';
+  const soma = ['total','conc','prazo','crit','atras','plan']
+    .reduce((a,k) => (a[k] = linhas.reduce((s,o) => s + o[k], 0), a), {});
+
+  document.querySelector('#tab-uni tbody').innerHTML = linhas.length ? linhas.map(o =>
+    '<tr><td class="cel-uni"><span title="' + esc(o.unidade) + '">' + esc(o.unidade) + '</span></td>' +
+    '<td class="cen">' + fmt(o.tipos) + '</td>' +
+    '<td class="num"><b>' + fmt(o.total) + '</b></td>' +
+    cel(o.conc, 'var(--t-conc)') + cel(o.prazo) + cel(o.crit, 'var(--t-critico)') + cel(o.atras, 'var(--t-atraso)') + cel(o.plan) +
+    '<td>' + barra(o) + '</td></tr>').join('') +
+    '<tr class="total-linha"><td>TOTAL — ' + fmt(linhas.length) +
+    (linhas.length === 1 ? ' pavimento/setor' : ' pavimentos e setores') + '</td><td class="cen">—</td>' +
+    '<td class="num">' + fmt(soma.total) + '</td><td class="num">' + fmt(soma.conc) + '</td>' +
+    '<td class="num">' + fmt(soma.prazo) + '</td><td class="num">' + fmt(soma.crit) + '</td>' +
+    '<td class="num">' + fmt(soma.atras) + '</td><td class="num">' + fmt(soma.plan) + '</td>' +
+    '<td>' + barra(soma) + '</td></tr>'
+    : (TERMOS.length ? linhaVazia(9)
+       : '<tr><td colspan="9" style="padding:34px;text-align:center;color:var(--muted)">Sem entregas no recorte atual</td></tr>');
+
+  $('#t-unidades').textContent = 'Como está cada pavimento e setor';
+  $('#sub-unidades').textContent = 'A carteira da unidade aberta por local. Cada entrega entra em uma única ' +
+    'coluna, então concluídas + no prazo + vencem em 30 d + em atraso + sem prazo = total.';
 }
 
 /* --- mapa --- */
@@ -3554,6 +3924,12 @@ function autenticado(){
 function liberarPainel(){
   document.body.classList.remove('travado');
   const a = $('#acesso'); if(a) a.remove();
+  if(ESCOPO()){
+    document.body.classList.add('escopo');   // troca os quadros da rede pelos da própria unidade
+    const ab = $('#aba-unidades');
+    if(ab) ab.textContent = 'Setores';
+    NOME_ABA.unidades = 'Pavimentos e setores';
+  }
   const selo = $('#pill-conta');
   if(selo && CONTA){
     selo.hidden = false;
