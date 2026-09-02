@@ -69,26 +69,15 @@ header.topo{background:#fff;padding:18px 24px 0}
   .topo-lado.dir{grid-column:2;grid-row:1}
 }
 
-/* recorte rápido: cartões e fatias da rosca funcionam como filtro de um clique */
-.chip-rec{display:inline-flex;align-items:center;gap:7px;align-self:center;background:var(--navy);
-  color:#fff;border-color:var(--navy);font-weight:600}
-.chip-rec i{font-style:normal;font-size:14px;line-height:1;opacity:.75}
-.chip-rec:hover i{opacity:1}
-.pizza-leg .it-btn{background:none;border:0;padding:2px 0;font:inherit;text-align:left;width:100%;
-  border-radius:6px;cursor:pointer}
-.pizza-leg .it-btn:hover{background:var(--surface-2)}
-.pizza-leg .it-btn[aria-pressed="true"]{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
-.pizza-svg .mark{transition:opacity .15s}
-.pizza-svg text{pointer-events:none}   /* o rótulo de % não pode bloquear o clique na fatia */
+/* a rosca é só leitura: o rótulo de % não intercepta o ponteiro para não atrapalhar a dica */
+.pizza-svg text{pointer-events:none}
 
 /* troca de aba com um respiro — some para quem prefere menos movimento */
 section[data-painel]:not([hidden]){animation:entra .18s ease-out}
 @keyframes entra{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){
   section[data-painel]:not([hidden]){animation:none}
-  .pizza-svg .mark{transition:none}
 }
-.pizza-svg.com-recorte .mark.apagado{opacity:.22}
 
 /* ---------- abas + estado ---------- */
 .barra{background:#fff;border-bottom:1px solid var(--grid);position:sticky;top:0;z-index:40}
@@ -268,6 +257,7 @@ td.cen{text-align:center;white-space:nowrap}
 /* células que reproduzem a planilha: preserva espaços e quebras como foram digitados */
 #tab,#erros-corpo table,#semdata-corpo table{table-layout:fixed}
 td.verb{white-space:pre-wrap;overflow-wrap:anywhere;max-width:300px;min-width:88px;font-variant-numeric:tabular-nums}
+td.verb.corta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0}
 thead th .col{display:block;font-weight:400;opacity:.6;font-size:8.5px;letter-spacing:.06em}
 td.verb.vazio-cel{color:var(--muted);font-style:italic}
 .esp{background:rgba(240,180,41,.28);border-radius:2px}
@@ -278,6 +268,10 @@ td.verb.vazio-cel{color:var(--muted);font-style:italic}
 #tab thead th:first-child{position:sticky;left:0;z-index:3;background:var(--navy)}
 #erros-corpo tbody td.col-fixa,#semdata-corpo tbody td.col-fixa,
 #tab tbody td.col-fixa{position:sticky;left:0;z-index:1;background:var(--surface)}
+/* dois selos (situação + atraso) precisam empilhar dentro da célula em vez de transbordar
+   por cima da coluna da unidade */
+#tab tbody td.col-fixa{white-space:normal;line-height:1.9}
+#tab tbody td.col-fixa .badge{margin:1px 0}
 #erros-corpo tbody tr:nth-child(even) td.col-fixa,#semdata-corpo tbody tr:nth-child(even) td.col-fixa,
 #tab tbody tr:nth-child(even) td.col-fixa{background:var(--surface-2)}
 #erros-corpo tbody tr:hover td.col-fixa,#semdata-corpo tbody tr:hover td.col-fixa,
@@ -642,7 +636,6 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
       <div class="f b"><label for="f-bus">Buscar</label>
         <input id="f-bus" type="search" autocomplete="off" spellcheck="false"
           title="Várias palavras somam (todas precisam aparecer). Aspas para expressão exata. Sinal de menos para excluir. Prefixos: unidade: geres: tipo: setor: status: municipio: classificacao: perfil: desc:"></div>
-      <button type="button" class="chip chip-rec" id="chip-recorte" hidden></button>
       <button class="btn-limpar" id="b-limpar">Limpar</button>
     </div>
 
@@ -1275,7 +1268,7 @@ function montarBase(grade){
       linha: i + 1,
       _bruto: CABECALHO_PLANILHA.map(c => valorBruto(l[c.idx]))
     };
-    r._brutoHtml = r._bruto.map(v => celulaVerbatim(v)).join('');
+    r._brutoHtml = r._bruto.map((v,k) => celulaVerbatim(v, null, classeCol(k))).join('');
     classificar(r);
     indexar(r);
     base.push(r);
@@ -1743,12 +1736,6 @@ function realce(txt, termos){
    array vazio significa "todas". */
 const F = {uni:[], ger:[], tip:[], cla:[], sit:[], bus:''};
 let SO_INICIO = false, MES_SEL = null;
-/* Recorte rápido dos cartões e da rosca da visão geral: {g:'Em atraso'} ou {crit:true}.
-   Fica separado dos filtros porque os próprios cartões continuam mostrando o quadro
-   inteiro — são a barra de navegação, não o resultado. */
-let RECORTE = null;
-const passaRecorte = r => !RECORTE || (RECORTE.crit ? r.critico : r.grupo === RECORTE.g);
-const rotuloRecorte = () => !RECORTE ? '' : (RECORTE.crit ? 'Vencem em 30 dias' : RECORTE.g);
 
 const MULTI = [
   {campo:'uni', id:'ms-uni', rot:'Todas as unidades',  vazio:'Todas as unidades',  sigla:true,
@@ -1917,8 +1904,7 @@ function montarFiltros(){
     avisar('O recorte foi ampliado: ' + FILTROS_PERDIDOS.map(v => '“' + v + '”').join(', ') +
            ' não existe mais na planilha e saiu do filtro.');
 }
-function filtradas(){ return filtradasSemRecorte().filter(passaRecorte); }
-function filtradasSemRecorte(){
+function filtradas(){
   TERMOS = parseBusca(F.bus);
   const base = LINHAS.filter(r =>
     (!F.uni.length || F.uni.includes(r.unidade)) && (!F.ger.length || F.ger.includes(r.geres)) &&
@@ -2095,7 +2081,7 @@ function pizza(el, segs, total, termo){
       s += '<path class="mark" d="M' + x0 + ' ' + y0 + ' A' + R + ' ' + R + ' 0 ' + grande + ' 1 ' + x1 + ' ' + y1 +
            ' L' + x2 + ' ' + y2 + ' A' + Ri + ' ' + Ri + ' 0 ' + grande + ' 0 ' + x3 + ' ' + y3 + ' Z" fill="' + g.cor +
            '" stroke="#fff" stroke-width="2" data-t="' + esc(g.nome) + '" data-v="' + fmt(g.v) + ' · ' + pc(g.v,total) +
-           '" data-grupo="' + esc(g.nome) + '" style="cursor:pointer">' + rotulo(g) + '</path>';
+           '">' + rotulo(g) + '</path>';
       if(g.v/total >= 0.07){
         const [lx,ly] = p((R+Ri)/2, a0 + ang/2);
         s += '<text x="' + lx + '" y="' + (+ly+4) + '" text-anchor="middle" style="font-size:12px;font-weight:700;fill:' +
@@ -2151,7 +2137,6 @@ function resumoImpressao(n){
   if(F.tip.length) f.push('Tipo: ' + F.tip.join(', '));
   if(F.cla.length) f.push('Classificação: ' + F.cla.join(', '));
   if(F.sit.length) f.push('Situação: ' + F.sit.join(', '));
-  if(RECORTE) f.push('somente ' + rotuloRecorte().toLowerCase());
   if(SO_INICIO) f.push('somente atrasos de início');
   if(F.bus) f.push('Busca: “' + F.bus + '”');
   $('#resumo-impressao').innerHTML = '<b>' + esc(NOME_ABA[ABA] || ABA) + '</b> · ' +
@@ -2162,7 +2147,6 @@ function desenhar(){
   if(!LINHAS.length) return;
   const d = filtradas();
   resumoImpressao(d.length);
-  marcarRecorte();
   atualizarDiagBadges();
   return comRolagem(() => {
   if(ABA === 'geral')       { abaGeral(d); return ESCOPO() ? abaGeralUnidade(d) : abaPareto(d); }
@@ -2213,7 +2197,7 @@ function atualizarDiagBadges(){
 function abaGeral(d){
   const lista = d.filter(r => r.grupo === 'Em atraso');
 
-  const nav = filtradasSemRecorte();       // os cartões mostram o quadro inteiro do recorte de filtros
+  const nav = d;
   const total = nav.length;
   const gN = n => nav.filter(r => r.grupo === n).length;
   const conc = gN('Concluída'), atras = gN('Em atraso'), plan = gN('A planejar');
@@ -2241,10 +2225,8 @@ function abaGeral(d){
   const cont = GRUPOS.map(x => Object.assign({}, x, {v: nav.filter(r => r.grupo === x.nome).length}));
   pizza($('#c-pizza'), cont, total, 'intervenções');
   $('#leg-pizza').innerHTML = cont.map(x =>
-    '<button type="button" class="it it-btn" data-grupo="' + esc(x.nome) + '" aria-pressed="' +
-    (!!(RECORTE && RECORTE.g === x.nome)) + '"><i class="sw" style="background:' + x.cor + '"></i><span>' + esc(x.nome) +
-    '</span><b>' + fmt(x.v) + '</b><span class="pc">' + pc(x.v, total) + '</span></button>').join('');
-  marcarRecorte();          // a rosca acabou de ser redesenhada: reaplica o destaque da fatia
+    '<span class="it"><i class="sw" style="background:' + x.cor + '"></i><span>' + esc(x.nome) +
+    '</span><b>' + fmt(x.v) + '</b><span class="pc">' + pc(x.v, total) + '</span></span>').join('');
 
   if(ESCOPO()){
     /* numa unidade só, "onde" deixa de ser o hospital e passa a ser o pavimento/setor —
@@ -2988,8 +2970,9 @@ function pareto(el, itens, opt){
   });
   const cruza = pontos.find(p => p[2] >= 80);
   if(cruza && itens.length > 2)
-    s += '<text x="' + Math.min(larg-mr-4, cruza[0]+6) + '" y="' + (cruza[1]-8) +
-      '" style="font-size:10.5px;font-weight:700;fill:' + corLinha + '">' + fmt1(cruza[2]) + '%</text>';
+    s += '<text x="' + Math.min(larg-mr-4, cruza[0]+8) + '" y="' + Math.max(12, cruza[1]-15) +
+      '" style="font-size:10.5px;font-weight:700;fill:' + corLinha +
+      ';stroke:var(--surface);stroke-width:3.5;paint-order:stroke fill">' + fmt1(cruza[2]) + '%</text>';
   s += '<line class="bl" x1="' + ml + '" y1="' + (h-mb+.5) + '" x2="' + (larg-mr) + '" y2="' + (h-mb+.5) + '"></line>';
   el.innerHTML = s + '</svg>';
   ligarTip(el);
@@ -3392,10 +3375,11 @@ function diagnosticar(){
 /* mostra a célula como ela está: espaço no começo/fim e espaço duplo ficam visíveis */
 function celulaVerbatim(v, termos, classe){
   const t = String(v == null ? '' : v);
+  const dica = classe && classe.includes('corta') && t ? ' title="' + esc(t) + '"' : '';
   if(!t) return '<td class="verb vazio-cel' + (classe ? ' ' + classe : '') + '">(vazio)</td>';
   const temEspaco = t.charCodeAt(0) === 32 || t.charCodeAt(t.length-1) === 32 || t.indexOf('  ') >= 0;
   if(!temEspaco && !(termos && termos.length))
-    return '<td class="verb' + (classe ? ' ' + classe : '') + '">' + esc(t) + '</td>';
+    return '<td class="verb' + (classe ? ' ' + classe : '') + '"' + dica + '>' + esc(t) + '</td>';
   const texto = p => termos && termos.length ? realce(p, termos) : esc(p);
   const marca = n => '<span class="esp" title="espaço em branco na célula">' + '·'.repeat(n) + '</span>';
   const re = /^ +| +$| {2,}/g;
@@ -3405,8 +3389,14 @@ function celulaVerbatim(v, termos, classe){
     i = m.index + m[0].length;
   }
   html += texto(t.slice(i));
-  return '<td class="verb' + (classe ? ' ' + classe : '') + '">' + html + '</td>';
+  return '<td class="verb' + (classe ? ' ' + classe : '') + '"' + dica + '>' + html + '</td>';
 }
+/* colunas que são texto longo demais para caber: mostram uma linha e reticências */
+const CORTAR_COL = new Set(['id']);
+const classeCol = k => {
+  const c = CABECALHO_PLANILHA[k];
+  return c && CORTAR_COL.has(norm(c.rot)) ? 'corta' : '';
+};
 function cabecalhoPlanilha(){
   return CABECALHO_PLANILHA.map(c =>
     '<th title="Coluna ' + c.col + ' da planilha">' + esc(c.rot) +
@@ -3416,11 +3406,12 @@ function cabecalhoPlanilha(){
 const larguraCol = rot => Math.max(96, Math.min(260, String(rot).length * 7.6 + 34));
 function colgroupPlanilha(extras){
   return '<colgroup>' + (extras || []).map(w => '<col style="width:' + w + 'px">').join('') +
-    CABECALHO_PLANILHA.map(c => '<col style="width:' + Math.round(larguraCol(c.rot)) + 'px">').join('') +
+    CABECALHO_PLANILHA.map(c => '<col style="width:' +
+      (CORTAR_COL.has(norm(c.rot)) ? 210 : Math.round(larguraCol(c.rot))) + 'px">').join('') +
     '</colgroup>';
 }
 const celulasPlanilha = (r, termos) => (termos && termos.length)
-  ? (r._bruto || []).map(v => celulaVerbatim(v, termos)).join('')
+  ? (r._bruto || []).map((v,k) => celulaVerbatim(v, termos, classeCol(k))).join('')
   : (r._brutoHtml || '');
 const notaPlanilha = n => '<div class="nota-planilha">As colunas à direita reproduzem a linha ' +
   'exatamente como está na planilha, com o número da linha para você ir direto nela. ' +
@@ -3506,7 +3497,7 @@ function problemasVisiveis(){
   return diagnosticar().filter(p => alvo.has(p.linha));
 }
 const recorteAtivo = () => F.uni.length || F.ger.length || F.tip.length || F.cla.length ||
-                            F.sit.length || F.bus || SO_INICIO || !!RECORTE;
+                            F.sit.length || F.bus || SO_INICIO;
 
 function abaErros(){
   const problemas = problemasVisiveis();
@@ -3964,7 +3955,7 @@ function abaConsulta(){
   const tab = document.querySelector('#tab');
   const cgAntigo = tab.querySelector('colgroup');
   if(cgAntigo) cgAntigo.remove();
-  tab.insertAdjacentHTML('afterbegin', colgroupPlanilha([116, 104, 128, 68]));
+  tab.insertAdjacentHTML('afterbegin', colgroupPlanilha([132, 104, 128, 68]));
   document.querySelector('#tab thead tr').innerHTML = COLS.map(([k,rot,cls]) => {
     const orig = k.startsWith('b') && CABECALHO_PLANILHA[+k.slice(1)];
     return '<th scope="col" role="columnheader" tabindex="0" data-k="' + k + '" class="' + (cls === 'verb' ? '' : cls) +
@@ -4074,7 +4065,7 @@ liga('#f-bus','input', e => { clearTimeout(deb); deb = setTimeout(() => { F.bus 
 liga('#b-limpar','click', () => {
   MULTI.forEach(m => { F[m.campo] = []; pintarLista(m); rotuloMulti(m); });
   F.bus = ''; $('#f-bus').value = ''; SO_INICIO = false; MES_SEL = null;
-  abrirMulti(null, false); RECORTE = null; marcarChips(); desenhar();
+  abrirMulti(null, false); marcarChips(); desenhar();
 });
 document.addEventListener('click', e => {          // fecha o popup ao clicar fora
   // o alvo pode ter sido substituído pelo redesenho da própria lista; nesse caso não é "fora"
@@ -4224,32 +4215,12 @@ liga('#b-csv-erros','click', () => {
       .concat((x.linhaOriginal && x.linhaOriginal._bruto) || [])));
 });
 document.addEventListener('click', e => {
-  const g = e.target.closest('[data-grupo]');
-  if(g){ aplicarRecorte({g: g.dataset.grupo}); return; }
   const b = e.target.closest('[data-kpi]');
   if(!b) return;
   const k = b.dataset.kpi;
   if(k.startsWith('area-')){ MODO_SEMAREA = k.slice(5); abaSemArea(); }
   else { MODO_SEMDATA = k; abaSemData(); }
 });
-liga('#chip-recorte','click', () => aplicarRecorte(null));
-/* clicar de novo no mesmo cartão desfaz o recorte */
-function aplicarRecorte(r){
-  const igual = JSON.stringify(RECORTE) === JSON.stringify(r);
-  RECORTE = igual ? null : r;
-  MES_SEL = null;
-  desenhar();
-}
-function marcarRecorte(){
-  const c = $('#chip-recorte');
-  if(!c) return;
-  c.hidden = !RECORTE;
-  if(RECORTE) c.innerHTML = esc(rotuloRecorte()) + '<i aria-hidden="true">×</i>';
-  const pizza = $('#c-pizza');
-  if(pizza) pizza.classList.toggle('com-recorte', !!(RECORTE && RECORTE.g));
-  if(pizza) pizza.querySelectorAll('[data-t]').forEach(m =>
-    m.classList.toggle('apagado', !!(RECORTE && RECORTE.g) && m.dataset.t !== RECORTE.g));
-}
 liga('#b-csv-semarea','click', () => {
   const anterior = MODO_SEMAREA === 'anterior', todas = MODO_SEMAREA === 'todas';
   const sa = filtradas().filter(r => semArea(r) && (todas ? true : anterior ? r.concluido : !r.concluido));
