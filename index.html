@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel de Monitoramento das Entregas — SES/PE · SEINFRA</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <style>
 :root{
@@ -23,10 +22,10 @@
 
   /* cores dos dados — redefinidas no modo escuro para manter contraste e leitura */
   --c-atraso:#d03b3b; --c-atraso-2:#8c1f1f; --c-critico:#fab219; --c-prazo:#2a78d6;
-  --c-planejar:#a9b4c2; --c-concluido:#0ca30c;
+  --c-planejar:#a9b4c2; --c-concluido:#0ca30c; --c-iniciar:#00a3a3;
   --c-base:#c3ccd8; --c-apagado:#c9d3e0; --c-area:#1baf7a; --c-area-atraso:#ec835a;
   --c-curva:#0f2759; --c-geres:#c7cfd8;
-  --t-atraso:#a32020; --t-conc:#0a7a0a; --t-critico:#8a6100; --t-prazo:#1a5aa8; --fundo-critico:#fdf0d2;
+  --t-atraso:#a32020; --t-conc:#0a7a0a; --t-critico:#8a6100; --t-prazo:#1a5aa8; --t-iniciar:#0a6f75; --fundo-critico:#fdf0d2;
   --sobre-amarelo:#4a3600; --sobre-cinza:#26303d;
 
   --r:10px;
@@ -173,7 +172,7 @@ body.escopo .so-unidade{display:flex}
   padding:7px 14px;min-height:34px;color:var(--ink-2);font-size:13px;white-space:nowrap}
 .btn-limpar:hover{background:#eaeff5}
 
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:10px;margin-bottom:14px}
 /* dentro da coluna "Em execução": quanto daquilo vence nos próximos 30 dias */
 .sub-crit{display:inline-block;margin-left:7px;padding:1px 6px;border-radius:5px;font-size:10.5px;
   font-weight:700;color:var(--t-critico);background:var(--fundo-critico);vertical-align:1px}
@@ -440,10 +439,10 @@ html[data-theme="dark"]{
   --s1:#4d94e8; --s3:#2bbd8e;
 
   --c-atraso:#e8615c; --c-atraso-2:#c9403c; --c-critico:#f0b429; --c-prazo:#4d94e8;
-  --c-planejar:#6b7280; --c-concluido:#33b45c;
+  --c-planejar:#6b7280; --c-concluido:#33b45c; --c-iniciar:#3fcfd6;
   --c-base:#5d6980; --c-apagado:#39445c; --c-area:#2bbd8e; --c-area-atraso:#e08a5c;
   --c-curva:#9cbbea; --c-geres:#59647e;
-  --t-atraso:#ff8f8a; --t-conc:#63d47f; --t-critico:#f0c25c; --t-prazo:#7db4f0; --fundo-critico:#3a2f14;
+  --t-atraso:#ff8f8a; --t-conc:#63d47f; --t-critico:#f0c25c; --t-prazo:#7db4f0; --t-iniciar:#6fdde2; --fundo-critico:#3a2f14;
   --sobre-amarelo:#3a2a00; --sobre-cinza:#f2f5fa;
 }
 .logo-escuro{display:none}
@@ -1250,6 +1249,7 @@ function indexar(r){
   const datas = [r.iniPrev, r.fimPrev, r.iniReal, r.fimReal].filter(Boolean).map(dbr).join(' ');
   r._idx = norm([siglaDe(r.unidade), r.unidade, r.municipio, 'geres ' + r.geres, r.tipo, r.perfil,
                  r.setor, r.descricao, r.status, r.exec, r.grupo, r.classif, datas,
+                 r.grupo === 'Em atraso' ? 'atrasado atrasada' : '',
                  r.critico ? 'prazo critico vence em 30 dias' : ''].join(' '));
   r._pal = [...new Set(r._idx.split(/[^0-9a-z]+/).filter(p => p.length >= 3))];
 }
@@ -1267,6 +1267,7 @@ const PASSA = ['PROJETO','AGUARDANDO PRAZO DO FISCAL','EXECUÇÃO LIBERADA','EXE
 /* "No prazo", "dentro do prazo" e "prazo crítico" digitados na planilha são a mesma
    situação de "em execução" — entram todos sob esse nome. */
 const CRITICO_FILTRO = 'PRAZO CRÍTICO (≤30d)';
+const ATRASO_FILTRO = 'ATRASADO';
 function statusPlanilha(exec){
   const t = String(exec || '').replace('EXECUCAO','EXECUÇÃO').trim();
   const n = norm(t);
@@ -1282,38 +1283,45 @@ function prazoEmDias(r){
   const d = dias(r.fimPrev, HOJE);
   if(d < 0) r.diasAtraso = -d; else r.restam = d;
 }
+/* A SITUAÇÃO é o que a planilha declara na coluna "Status de Execução" — é assim que a
+   SEINFRA conta no relatório oficial. Obra dentro do prazo mas ainda não começada é
+   A INICIAR, não "em execução". O atraso e o prazo crítico são calculados aqui em cima
+   das datas e entram como recortes próprios, sem apagar a situação declarada. */
 function classificar(r){
   r.concluido = !!r.fimReal || r.exec === 'CONCLUÍDO' || r.exec === 'CONCLUIDO';
   r.diasAtraso = 0; r.atrasoInicio = 0; r.restam = null; r.critico = false;
   if(r.concluido){ r.status = 'CONCLUÍDO'; r.grupo = 'Concluída'; return; }
   if(!r.iniReal && r.iniPrev && dias(r.iniPrev, HOJE) < 0) r.atrasoInicio = -dias(r.iniPrev, HOJE);
 
+  const decl = statusPlanilha(r.exec);         // vazio quando a planilha não diz nada
   if(PASSA.includes(r.exec)){
-    r.status = statusPlanilha(r.exec); r.grupo = 'A planejar';
+    r.status = decl; r.grupo = 'A planejar';
     prazoEmDias(r); return;                    // aguardando prazo do fiscal com data: mostra os dias
   }
   if(!r.fimPrev){
-    r.status = (!r.exec || r.exec === 'A PLANEJAR') ? 'A PLANEJAR' : statusPlanilha(r.exec);
+    r.status = decl || 'A PLANEJAR';
     r.grupo = 'A planejar'; return;
   }
 
+  r.status = decl || (r.iniReal ? 'EM EXECUÇÃO' : 'A INICIAR');
   const restam = dias(r.fimPrev, HOJE);
-  if(restam < 0){ r.status = 'ATRASADO'; r.diasAtraso = -restam; r.grupo = 'Em atraso'; return; }
-  /* Regra da SEINFRA: obra com prazo em aberto está em execução — inclusive a que vence
-     nos próximos 30 dias, que continua marcada como prazo crítico para poder ser filtrada. */
+  if(restam < 0){ r.diasAtraso = -restam; r.grupo = 'Em atraso'; return; }
   r.restam = restam;
-  r.grupo = 'Em execução';
-  r.status = 'EM EXECUÇÃO';
   if(restam <= 30) r.critico = true;
+  r.grupo = r.status === 'EM EXECUÇÃO' ? 'Em execução'
+          : r.status === 'A INICIAR'   ? 'A iniciar'
+          : 'A planejar';
 }
 
 const GRUPOS = [
   {nome:'Em atraso',           cor:'var(--c-atraso)', txt:'#fff'},
   {nome:'Em execução',         cor:'var(--c-prazo)', txt:'#fff'},
+  {nome:'A iniciar',           cor:'var(--c-iniciar)', txt:'#fff'},
   {nome:'A planejar',          cor:'var(--c-planejar)', txt:'var(--sobre-cinza)'},
   {nome:'Concluída',           cor:'var(--c-concluido)', txt:'#fff'}
 ];
-const CLASSE_STATUS = {'ATRASADO':'b-crit','PRAZO CRÍTICO (≤30d)':'b-warn','EM EXECUÇÃO':'b-info','CONCLUÍDO':'b-good'};
+const CLASSE_STATUS = {'ATRASADO':'b-crit','PRAZO CRÍTICO (≤30d)':'b-warn','EM EXECUÇÃO':'b-info',
+                       'A INICIAR':'b-mut','CONCLUÍDO':'b-good'};
 const FAIXAS = [
   {rot:'Crítico (>180d)', teste:d => d > 180}, {rot:'Alto (91–180d)', teste:d => d > 90},
   {rot:'Médio (31–90d)',  teste:d => d > 30},  {rot:'Baixo (até 30d)', teste:() => true}
@@ -1544,7 +1552,8 @@ function textoCampo(r, c){
   if(c === 'tipo')      return norm(r.tipo);
   if(c === 'setor')     return norm(r.setor);
   if(c === 'desc')      return norm(r.descricao);
-  if(c === 'status')    return norm(r.status + ' ' + r.exec + ' ' + r.grupo + (r.critico ? ' prazo critico vence em 30 dias' : ''));
+  if(c === 'status')    return norm(r.status + ' ' + r.exec + ' ' + r.grupo +
+    (r.grupo === 'Em atraso' ? ' atrasado atrasada' : '') + (r.critico ? ' prazo critico vence em 30 dias' : ''));
   if(c === 'municipio') return norm(r.municipio);
   if(c === 'classif')   return norm(r.classif);
   if(c === 'perfil')    return norm(r.perfil);
@@ -1698,12 +1707,13 @@ const MULTI = [
   {campo:'cla', id:'ms-cla', rot:'Todas',   vazio:'Todas as classificações',
    valores: b => [...new Set(b.map(r => r.classif).filter(Boolean))].sort((a,c) => a.localeCompare(c,'pt-BR'))},
   {campo:'sit', id:'ms-sit', rot:'Todas',   vazio:'Todas as situações',
-   /* "Prazo crítico" não é um status próprio: é um recorte de "em execução". Entra na
-      lista como opção de filtro para poder ser isolado sem sair do grupo. */
+   /* "Atrasado" e "prazo crítico" não são status da planilha: são recortes calculados a
+      partir das datas. Entram na lista para poder ser isolados sem apagar a situação. */
    valores: b => {
-     const ordem = ['ATRASADO','EM EXECUÇÃO',CRITICO_FILTRO,'A INICIAR','A PLANEJAR',
+     const ordem = [ATRASO_FILTRO, CRITICO_FILTRO, 'EM EXECUÇÃO','A INICIAR','A PLANEJAR',
                     'PROJETO','AGUARDANDO PRAZO DO FISCAL','EXECUÇÃO LIBERADA','CONCLUÍDO'];
      const tem = [...new Set(b.map(r => r.status))];
+     if(b.some(r => r.grupo === 'Em atraso')) tem.push(ATRASO_FILTRO);
      if(b.some(r => r.critico)) tem.push(CRITICO_FILTRO);
      return ordem.filter(x => tem.includes(x)).concat(tem.filter(x => !ordem.includes(x)).sort((a,c) => a.localeCompare(c,'pt-BR')));
    }}
@@ -1859,7 +1869,9 @@ function filtradas(){
   const base = LINHAS.filter(r =>
     (!F.uni.length || F.uni.includes(r.unidade)) && (!F.ger.length || F.ger.includes(r.geres)) &&
     (!F.tip.length || F.tip.includes(r.tipo))    && (!F.cla.length || F.cla.includes(r.classif)) &&
-    (!F.sit.length || F.sit.some(v => v === CRITICO_FILTRO ? r.critico : v === r.status)) &&
+    (!F.sit.length || F.sit.some(v => v === CRITICO_FILTRO ? r.critico
+                                     : v === ATRASO_FILTRO ? r.grupo === 'Em atraso'
+                                     : v === r.status)) &&
     (!SO_INICIO || (r.atrasoInicio > 0 && r.grupo !== 'Em atraso')));
   return aplicarBusca(base, TERMOS);
 }
@@ -2146,7 +2158,8 @@ function abaGeral(d){
   const total = d.length;
   const g = n => d.filter(r => r.grupo === n).length;
   const conc = g('Concluída'), atras = g('Em atraso'), plan = g('A planejar');
-  const exec = g('Em execução'), crit = d.filter(r => r.critico).length;
+  const exec = g('Em execução'), inic = g('A iniciar'), crit = d.filter(r => r.critico).length;
+  const critExec = d.filter(r => r.critico && r.grupo === 'Em execução').length;
   const lista = d.filter(r => r.grupo === 'Em atraso');
   const media = lista.length ? Math.round(lista.reduce((s,r) => s + r.diasAtraso, 0) / lista.length) : 0;
 
@@ -2157,13 +2170,14 @@ function abaGeral(d){
       : plural(contarDistintos(d, 'unidade'), 'unidade de saúde', 'unidades de saúde')],
     ['good','Concluídas', fmt(conc) + '<u>' + pc(conc, total) + '</u>', 'do total monitorado'],
     ['info','Em execução', fmt(exec) + '<u>' + pc(exec, total) + '</u>',
-      crit ? fmt(crit) + (crit === 1 ? ' vence' : ' vencem') + ' em 30 dias'
-           : 'com prazo em aberto'],
+      critExec ? fmt(critExec) + (critExec === 1 ? ' vence' : ' vencem') + ' em 30 dias'
+               : 'obra em andamento'],
+    ['info','A iniciar', fmt(inic) + '<u>' + pc(inic, total) + '</u>', 'ainda não começaram'],
     ['crit','Em atraso', fmt(atras) + '<u>' + pc(atras, total) + '</u>',
       atras ? 'atraso médio de ' + fmt(media) + ' dias'
             : (d.some(r => r.fimPrev) ? 'nenhum prazo vencido' : 'nenhuma entrega tem término previsto')],
     ['warn','Vencem em 30 dias', fmt(crit), 'prazo crítico'],
-    ['info','A planejar', fmt(plan) + '<u>' + pc(plan, total) + '</u>', 'ainda sem prazo de término']
+    ['info','A planejar', fmt(plan) + '<u>' + pc(plan, total) + '</u>', 'sem prazo definido']
   ].map(cartao).join('');
 
   const cont = GRUPOS.map(x => Object.assign({}, x, {v: d.filter(r => r.grupo === x.nome).length}));
@@ -2642,10 +2656,13 @@ function cabecalho(cols, ord){
     '<span class="ar" aria-hidden="true">' + (ord.col === k ? (ord.dir > 0 ? '▲' : '▼') : '⇅') + '</span></th>').join('');
 }
 const rotuloStatus = st => st === CRITICO_FILTRO ? '≤ 30 DIAS' : st;
-/* o crítico aparece como "em execução" e ganha o selo do prazo ao lado */
+/* a situação declarada na planilha, com o selo do prazo calculado ao lado */
 const selosStatus = r => '<span class="badge ' + (CLASSE_STATUS[r.status] || 'b-mut') + '">' +
   esc(rotuloStatus(r.status)) + '</span>' +
-  (r.critico ? '<span class="badge b-warn" style="margin-left:4px" title="Prazo crítico: vence em 30 dias">≤ 30 D</span>' : '');
+  (r.grupo === 'Em atraso'
+    ? '<span class="badge b-crit" style="margin-left:4px" title="Término previsto já vencido">ATRASADA</span>'
+    : r.critico
+      ? '<span class="badge b-warn" style="margin-left:4px" title="Prazo crítico: vence em 30 dias">≤ 30 D</span>' : '');
 const textoPrazo = r => r.diasAtraso > 0
   ? '<b style="color:var(--t-atraso)">' + fmt(r.diasAtraso) + ' d em atraso</b>'
   : r.concluido ? '<span style="color:var(--muted)">concluída</span>'
@@ -2766,9 +2783,9 @@ function agrupaGrupo(d, chave){
   const m = {};
   d.forEach(r => {
     const k = typeof chave === 'function' ? chave(r) : ((r[chave] || '—').trim() || '—');
-    const o = m[k] = m[k] || {total:0, conc:0, exec:0, crit:0, atras:0, plan:0};
+    const o = m[k] = m[k] || {total:0, conc:0, exec:0, inic:0, crit:0, critExec:0, atras:0, plan:0};
     o.total++; o[CHAVE_GRUPO[r.grupo] || 'plan']++;
-    if(r.critico) o.crit++;
+    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; }
   });
   return m;
 }
@@ -2906,17 +2923,18 @@ function abaPareto(d){
    eram contadas duas vezes — por isso as linhas não fechavam. */
 const COL_UNI = [
   ['unidade','Unidade de saúde',''], ['geres','GERES','cen'], ['total','Total','num'],
-  ['conc','Concluídas','num'], ['exec','Em execução','num'],
-  ['atras','Em atraso','num'], ['plan','Sem prazo','num'], ['taxa','Composição','']
+  ['conc','Concluídas','num'], ['exec','Em execução','num'], ['inic','A iniciar','num'],
+  ['atras','Em atraso','num'], ['plan','A planejar','num'], ['taxa','Composição','']
 ];
-const CHAVE_GRUPO = {'Concluída':'conc','Em execução':'exec','Em atraso':'atras','A planejar':'plan'};
+const CHAVE_GRUPO = {'Concluída':'conc','Em execução':'exec','A iniciar':'inic','Em atraso':'atras','A planejar':'plan'};
 /* A barra de composição abre "Em execução" em duas fatias — o que vence em 30 dias e o
    resto — sem quebrar a soma das colunas, que continua contando cada entrega uma vez. */
 const SEG_COMP = [
   {k:'atras', nome:'Em atraso',                         cor:'var(--c-atraso)',    v:o => o.atras},
-  {k:'crit',  nome:'Em execução · vence em 30 dias',    cor:'var(--c-critico)',   v:o => o.crit},
-  {k:'exec',  nome:'Em execução',                       cor:'var(--c-prazo)',     v:o => o.exec - o.crit},
-  {k:'plan',  nome:'A planejar (sem prazo)',            cor:'var(--c-planejar)',  v:o => o.plan},
+  {k:'crit',  nome:'Vence em 30 dias',                  cor:'var(--c-critico)',   v:o => o.crit},
+  {k:'exec',  nome:'Em execução',                       cor:'var(--c-prazo)',     v:o => Math.max(0, o.exec - (o.critExec || 0))},
+  {k:'inic',  nome:'A iniciar',                         cor:'var(--c-iniciar)',   v:o => Math.max(0, o.inic - (o.crit - (o.critExec || 0)))},
+  {k:'plan',  nome:'A planejar',                        cor:'var(--c-planejar)',  v:o => o.plan},
   {k:'conc',  nome:'Concluídas',                        cor:'var(--c-concluido)', v:o => o.conc}
 ];
 const legendaComp = () => SEG_COMP.map(g =>
@@ -2931,8 +2949,15 @@ function barraComp(o){
 /* célula de "Em execução" com o quanto disso vence em 30 dias */
 const celExec = o => '<td class="num' + (o.exec ? '' : ' zero') + '">' +
   (o.exec ? '<b style="color:var(--t-prazo)">' + fmt(o.exec) + '</b>' : fmt(o.exec)) +
-  (o.crit ? '<span class="sub-crit" title="dessas, ' + fmt(o.crit) + ' vencem em 30 dias">' + fmt(o.crit) + '</span>' : '') +
+  (o.critExec ? '<span class="sub-crit" title="dessas, ' + fmt(o.critExec) + ' vencem em 30 dias">' + fmt(o.critExec) + '</span>' : '') +
   '</td>';
+/* célula de "A iniciar", com o que já está no prazo crítico */
+const celInic = o => {
+  const c = Math.max(0, o.crit - (o.critExec || 0));
+  return '<td class="num' + (o.inic ? '' : ' zero') + '">' +
+    (o.inic ? '<b style="color:var(--t-iniciar)">' + fmt(o.inic) + '</b>' : fmt(o.inic)) +
+    (c ? '<span class="sub-crit" title="dessas, ' + fmt(c) + ' vencem em 30 dias">' + fmt(c) + '</span>' : '') + '</td>';
+};
 let ordemUni = {col:'atras', dir:-1};
 
 function abaUnidades(d){
@@ -2940,10 +2965,10 @@ function abaUnidades(d){
   const m = {};
   d.forEach(r => {
     const o = m[r.unidade] = m[r.unidade] ||
-      {unidade:r.unidade, geres:r.geres, total:0, conc:0, exec:0, crit:0, atras:0, plan:0};
+      {unidade:r.unidade, geres:r.geres, total:0, conc:0, exec:0, inic:0, crit:0, critExec:0, atras:0, plan:0};
     o.total++;
     o[CHAVE_GRUPO[r.grupo] || 'plan']++;
-    if(r.critico) o.crit++;
+    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; }
     if(!o.geres && r.geres) o.geres = r.geres;
   });
   const linhas = Object.values(m).map(o => Object.assign(o, {taxa: o.total ? o.conc/o.total : 0}));
@@ -2960,7 +2985,7 @@ function abaUnidades(d){
   const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' + (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') +
     '>' + fmt(v) + '</td>';
 
-  const soma = ['total','conc','exec','crit','atras','plan']
+  const soma = ['total','conc','exec','inic','crit','critExec','atras','plan']
     .reduce((a,k) => (a[k] = linhas.reduce((s,o) => s + o[k], 0), a), {});
   soma.unidade = 'TOTAL — ' + fmt(linhas.length) + ' unidades';
 
@@ -2968,19 +2993,19 @@ function abaUnidades(d){
     '<tr><td class="cel-uni">' + comSigla(o.unidade) + '</td>' +
     '<td class="cen">' + esc(o.geres || '—') + '</td>' +
     '<td class="num"><b>' + fmt(o.total) + '</b></td>' +
-    cel(o.conc, 'var(--t-conc)') + celExec(o) + cel(o.atras, 'var(--t-atraso)') + cel(o.plan) +
+    cel(o.conc, 'var(--t-conc)') + celExec(o) + celInic(o) + cel(o.atras, 'var(--t-atraso)') + cel(o.plan) +
     '<td>' + barraComp(o) + '</td></tr>').join('') +
     '<tr class="total-linha"><td>' + esc(soma.unidade) + '</td><td class="cen">—</td>' +
     '<td class="num">' + fmt(soma.total) + '</td><td class="num">' + fmt(soma.conc) + '</td>' +
-    celExec(soma) +
+    celExec(soma) + celInic(soma) +
     '<td class="num">' + fmt(soma.atras) + '</td><td class="num">' + fmt(soma.plan) + '</td>' +
     '<td>' + barraComp(soma) + '</td></tr>'
-    : (TERMOS.length ? linhaVazia(8)
-       : '<tr><td colspan="8" style="padding:34px;text-align:center;color:var(--muted)">Sem unidades no recorte atual</td></tr>');
+    : (TERMOS.length ? linhaVazia(9)
+       : '<tr><td colspan="9" style="padding:34px;text-align:center;color:var(--muted)">Sem unidades no recorte atual</td></tr>');
 
   $('#t-unidades').textContent = 'Como está cada unidade de saúde';
   $('#sub-unidades').textContent = 'Cada entrega entra em uma única coluna, então ' +
-    'concluídas + em execução + em atraso + sem prazo = total. O número amarelo dentro de Em execução ' +
+    'concluídas + em execução + a iniciar + em atraso + a planejar = total. O número amarelo ao lado ' +
     'é o que vence nos próximos 30 dias. Clique no cabeçalho para reordenar.';
 }
 
@@ -2988,16 +3013,16 @@ function abaUnidades(d){
    abrir a unidade por dentro: cada pavimento/setor com a sua situação. */
 const COL_SET = [
   ['unidade','Pavimento / setor',''], ['tipos','Tipos','cen'], ['total','Total','num'],
-  ['conc','Concluídas','num'], ['exec','Em execução','num'],
-  ['atras','Em atraso','num'], ['plan','Sem prazo','num'], ['taxa','Composição','']
+  ['conc','Concluídas','num'], ['exec','Em execução','num'], ['inic','A iniciar','num'],
+  ['atras','Em atraso','num'], ['plan','A planejar','num'], ['taxa','Composição','']
 ];
 function abaSetores(d){
   const m = {};
   d.forEach(r => {
     const k = setorDe(r);
-    const o = m[k] = m[k] || {unidade:k, tipos:new Set(), total:0, conc:0, exec:0, crit:0, atras:0, plan:0};
+    const o = m[k] = m[k] || {unidade:k, tipos:new Set(), total:0, conc:0, exec:0, inic:0, crit:0, critExec:0, atras:0, plan:0};
     o.total++; o[CHAVE_GRUPO[r.grupo] || 'plan']++;
-    if(r.critico) o.crit++;
+    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; }
     if(r.tipo) o.tipos.add(r.tipo);
   });
   const linhas = Object.values(m).map(o => Object.assign(o, {taxa: o.total ? o.conc/o.total : 0, tipos:o.tipos.size}));
@@ -3015,28 +3040,28 @@ function abaSetores(d){
 
   const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' + (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') +
     '>' + fmt(v) + '</td>';
-  const soma = ['total','conc','exec','crit','atras','plan']
+  const soma = ['total','conc','exec','inic','crit','critExec','atras','plan']
     .reduce((a,k) => (a[k] = linhas.reduce((s,o) => s + o[k], 0), a), {});
 
   document.querySelector('#tab-uni tbody').innerHTML = linhas.length ? linhas.map(o =>
     '<tr><td class="cel-uni"><span title="' + esc(o.unidade) + '">' + esc(o.unidade) + '</span></td>' +
     '<td class="cen">' + fmt(o.tipos) + '</td>' +
     '<td class="num"><b>' + fmt(o.total) + '</b></td>' +
-    cel(o.conc, 'var(--t-conc)') + celExec(o) + cel(o.atras, 'var(--t-atraso)') + cel(o.plan) +
+    cel(o.conc, 'var(--t-conc)') + celExec(o) + celInic(o) + cel(o.atras, 'var(--t-atraso)') + cel(o.plan) +
     '<td>' + barraComp(o) + '</td></tr>').join('') +
     '<tr class="total-linha"><td>TOTAL — ' + fmt(linhas.length) +
     (linhas.length === 1 ? ' pavimento/setor' : ' pavimentos e setores') + '</td><td class="cen">—</td>' +
     '<td class="num">' + fmt(soma.total) + '</td><td class="num">' + fmt(soma.conc) + '</td>' +
-    celExec(soma) +
+    celExec(soma) + celInic(soma) +
     '<td class="num">' + fmt(soma.atras) + '</td><td class="num">' + fmt(soma.plan) + '</td>' +
     '<td>' + barraComp(soma) + '</td></tr>'
-    : (TERMOS.length ? linhaVazia(8)
-       : '<tr><td colspan="8" style="padding:34px;text-align:center;color:var(--muted)">Sem entregas no recorte atual</td></tr>');
+    : (TERMOS.length ? linhaVazia(9)
+       : '<tr><td colspan="9" style="padding:34px;text-align:center;color:var(--muted)">Sem entregas no recorte atual</td></tr>');
 
   $('#t-unidades').textContent = 'Como está cada pavimento e setor';
   $('#sub-unidades').textContent = 'A carteira da unidade aberta por local. Cada entrega entra em uma única ' +
-    'coluna, então concluídas + em execução + em atraso + sem prazo = total. O número amarelo dentro de ' +
-    'Em execução é o que vence nos próximos 30 dias.';
+    'coluna, então concluídas + em execução + a iniciar + em atraso + a planejar = total. O número ' +
+    'amarelo ao lado é o que vence nos próximos 30 dias.';
 }
 
 /* --- mapa --- */
@@ -3568,12 +3593,12 @@ const PE_BOUNDS = [[-41.55, -9.65], [-34.55, -7.05]];
 const PE_MAX_BOUNDS = [[-42.6, -10.6], [-33.4, -6.1]];
 
 function estatUnidadeMapa(d, unidade){
-  const o = {unidade, geres:'', municipio:'', area:0, total:0, conc:0, exec:0, crit:0, atras:0, plan:0};
+  const o = {unidade, geres:'', municipio:'', area:0, total:0, conc:0, exec:0, inic:0, crit:0, critExec:0, atras:0, plan:0};
   d.forEach(r => {
     if(r.unidade !== unidade) return;
     o.total++;
     o[CHAVE_GRUPO[r.grupo] || 'plan']++;
-    if(r.critico) o.crit++;
+    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; }
     o.area += r.area || 0;
     if(!o.geres && r.geres) o.geres = r.geres;
     if(!o.municipio && r.municipio) o.municipio = r.municipio;
@@ -3585,6 +3610,7 @@ function corMapa(o){
   if(o.atras > 0) return 'var(--c-atraso)';
   if(o.crit  > 0) return 'var(--c-critico)';
   if(o.exec  > 0) return 'var(--c-prazo)';
+  if(o.inic  > 0) return 'var(--c-iniciar)';
   if(o.plan  > 0 && o.total === o.plan) return 'var(--c-planejar)';
   if(o.conc  > 0) return 'var(--c-concluido)';
   return 'var(--c-planejar)';
@@ -3594,6 +3620,7 @@ function situacaoMapa(o){
   if(o.atras > 0) return {rot:'Com entregas em atraso', bg:'#fbe4e4', fg:'#8f1f1f'};
   if(o.crit  > 0) return {rot:'Com prazos vencendo em 30 dias', bg:'#fdf0d2', fg:'#7a5600'};
   if(o.exec  > 0) return {rot:'Em execução, dentro do prazo', bg:'#e3edfb', fg:'#164a86'};
+  if(o.inic  > 0) return {rot:'A iniciar, dentro do prazo', bg:'#dcf1f2', fg:'#0a5a60'};
   if(o.total > 0 && o.total === o.conc) return {rot:'Todas as entregas concluídas', bg:'#dcf3dc', fg:'#0a5c0a'};
   if(o.total > 0) return {rot:'A planejar', bg:'#edf0f4', fg:'#48546a'};
   return {rot:'Sem intervenções no recorte atual', bg:'#edf0f4', fg:'#48546a'};
@@ -3615,7 +3642,8 @@ function popupHtmlMapa(coord, o){
       '<tr><td><b>Total de intervenções</b></td><td class="v"><b>' + fmt(o.total) + '</b></td></tr>' +
       linha('Em atraso', o.atras, 'var(--c-atraso)') +
       linha('Em execução', o.exec, 'var(--t-prazo)') +
-      linha('· das quais vencem em 30 dias', o.crit, 'var(--t-critico)') +
+      linha('A iniciar', o.inic, 'var(--t-iniciar)') +
+      linha('· vencem em 30 dias', o.crit, 'var(--t-critico)') +
       linha('A planejar', o.plan) +
       linha('Concluídas', o.conc, 'var(--t-conc)') +
       (o.area > 0 ? '<tr><td>Área intervencionada</td><td class="v">' + areaTxt(o.area) + '</td></tr>' : '') +
