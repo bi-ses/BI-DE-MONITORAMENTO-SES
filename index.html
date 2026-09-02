@@ -80,8 +80,6 @@ header.topo{background:#fff;padding:18px 24px 0}
 .pizza-leg .it-btn[aria-pressed="true"]{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
 .pizza-svg .mark{transition:opacity .15s}
 .pizza-svg text{pointer-events:none}   /* o rótulo de % não pode bloquear o clique na fatia */
-.kpi-botao[data-kpi^="rec:"]:not(.kpi-ativo)::before{content:"recortar"}
-.kpi-botao[data-kpi="rec:"]:not(.kpi-ativo)::before{content:"ver tudo";opacity:1;color:var(--navy-3)}
 
 /* troca de aba com um respiro — some para quem prefere menos movimento */
 section[data-painel]:not([hidden]){animation:entra .18s ease-out}
@@ -2213,31 +2211,21 @@ function abaGeral(d){
   const critExec = nav.filter(r => r.critico && r.grupo === 'Em execução').length;
   const listaAt = nav.filter(r => r.grupo === 'Em atraso');
   const media = listaAt.length ? Math.round(listaAt.reduce((s,r) => s + r.diasAtraso, 0) / listaAt.length) : 0;
-  const alvo = (g, dica) => ({id:'rec:' + g, ativo: g === '' ? !RECORTE
-                              : g === 'crit' ? !!(RECORTE && RECORTE.crit)
-                              : !!(RECORTE && RECORTE.g === g), dica});
   const nSet = contarSetores(nav);
   $('#kpis').innerHTML = [
     ['info','Intervenções', fmt(total), ESCOPO()
       ? (nSet ? plural(nSet, 'pavimento/setor', 'pavimentos e setores') : 'nesta unidade de saúde')
-      : plural(contarDistintos(nav, 'unidade'), 'unidade de saúde', 'unidades de saúde'),
-      RECORTE ? {id:'rec:', ativo:false, dica:'Voltar a ver tudo'} : null],
-    ['good','Concluídas', fmt(conc) + '<u>' + pc(conc, total) + '</u>', 'do total monitorado',
-      alvo('Concluída', 'Ver só as concluídas')],
+      : plural(contarDistintos(nav, 'unidade'), 'unidade de saúde', 'unidades de saúde')],
+    ['good','Concluídas', fmt(conc) + '<u>' + pc(conc, total) + '</u>', 'do total monitorado'],
     ['info','Em execução', fmt(exec) + '<u>' + pc(exec, total) + '</u>',
       critExec ? fmt(critExec) + (critExec === 1 ? ' vence' : ' vencem') + ' em 30 dias'
-               : 'obra em andamento',
-      alvo('Em execução', 'Ver só as que estão em obra')],
-    ['info','A iniciar', fmt(inic) + '<u>' + pc(inic, total) + '</u>', 'ainda não começaram',
-      alvo('A iniciar', 'Ver só as que ainda não começaram')],
+               : 'obra em andamento'],
+    ['info','A iniciar', fmt(inic) + '<u>' + pc(inic, total) + '</u>', 'ainda não começaram'],
     ['crit','Em atraso', fmt(atras) + '<u>' + pc(atras, total) + '</u>',
       atras ? 'atraso médio de ' + fmt(media) + ' dias'
-            : (nav.some(r => r.fimPrev) ? 'nenhum prazo vencido' : 'nenhuma entrega tem término previsto'),
-      alvo('Em atraso', 'Ver só as atrasadas')],
-    ['warn','Vencem em 30 dias', fmt(crit), 'prazo crítico',
-      alvo('crit', 'Ver só as que vencem em 30 dias')],
-    ['info','A planejar', fmt(plan) + '<u>' + pc(plan, total) + '</u>', 'sem prazo definido',
-      alvo('A planejar', 'Ver só as sem prazo')]
+            : (nav.some(r => r.fimPrev) ? 'nenhum prazo vencido' : 'nenhuma entrega tem término previsto')],
+    ['warn','Vencem em 30 dias', fmt(crit), 'prazo crítico'],
+    ['info','A planejar', fmt(plan) + '<u>' + pc(plan, total) + '</u>', 'sem prazo definido']
   ].map(cartao).join('');
 
   const cont = GRUPOS.map(x => Object.assign({}, x, {v: nav.filter(r => r.grupo === x.nome).length}));
@@ -2246,6 +2234,7 @@ function abaGeral(d){
     '<button type="button" class="it it-btn" data-grupo="' + esc(x.nome) + '" aria-pressed="' +
     (!!(RECORTE && RECORTE.g === x.nome)) + '"><i class="sw" style="background:' + x.cor + '"></i><span>' + esc(x.nome) +
     '</span><b>' + fmt(x.v) + '</b><span class="pc">' + pc(x.v, total) + '</span></button>').join('');
+  marcarRecorte();          // a rosca acabou de ser redesenhada: reaplica o destaque da fatia
 
   if(ESCOPO()){
     /* numa unidade só, "onde" deixa de ser o hospital e passa a ser o pavimento/setor —
@@ -4191,11 +4180,7 @@ document.addEventListener('click', e => {
   const b = e.target.closest('[data-kpi]');
   if(!b) return;
   const k = b.dataset.kpi;
-  if(k.startsWith('rec:')){
-    const v = k.slice(4);
-    aplicarRecorte(!v ? null : v === 'crit' ? {crit:true} : {g:v});
-  }
-  else if(k.startsWith('area-')){ MODO_SEMAREA = k.slice(5); abaSemArea(); }
+  if(k.startsWith('area-')){ MODO_SEMAREA = k.slice(5); abaSemArea(); }
   else { MODO_SEMDATA = k; abaSemData(); }
 });
 liga('#chip-recorte','click', () => aplicarRecorte(null));
