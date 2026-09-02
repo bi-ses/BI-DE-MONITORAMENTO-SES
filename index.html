@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel de Monitoramento das Entregas — SES/PE · SEINFRA</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <style>
 :root{
@@ -1026,12 +1025,28 @@ function parseData(v){
   if(!isNaN(n) && n > 20000 && n < 80000) return zerar(new Date(1899, 11, 30 + Math.floor(n)));
   return null;
 }
+/* "1.234" é 1234 numa planilha em português e 1,234 numa em inglês — o valor sozinho não
+   diz qual. A decisão é tomada uma vez, olhando a coluna inteira: se aparece vírgula
+   decimal em algum lugar, o ponto é separador de milhar; se só aparecem pontos com uma ou
+   duas casas, o ponto é decimal. Sem isso, uma planilha exportada em inglês multiplicava
+   áreas por mil silenciosamente. */
+let PONTO_MILHAR = true;
+function detectarSeparador(valores){
+  let virgula = 0, pontoDecimal = 0;
+  for(const v of valores){
+    const t = String(v ?? '').trim();
+    if(!t) continue;
+    if(t.includes(',')) virgula++;
+    else if(/^-?\d+\.\d{1,2}$/.test(t)) pontoDecimal++;   // 123.4 e 123.45 só fazem sentido como decimal
+  }
+  PONTO_MILHAR = virgula > 0 || pontoDecimal === 0;
+}
 function num(v){
   if(typeof v === 'number') return isFinite(v) ? v : 0;
   let s = String(v ?? '').replace(/[^\d,.-]/g,'');
   if(!s) return 0;
   if(s.includes(',')) s = s.replace(/\./g,'').replace(',','.');        // 1.234,56 -> 1234.56
-  else if(/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g,'');   // 1.250 -> 1250 (milhar sem decimal)
+  else if(PONTO_MILHAR && /^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g,'');   // 1.250 -> 1250
   const n = Number(s);
   return isNaN(n) ? 0 : n;
 }
@@ -1211,6 +1226,7 @@ function montarBase(grade){
 
   const pega = (l,k) => idx[k] >= 0 ? l[idx[k]] : null;
   const txt = v => String(v ?? '').trim();
+  if(idx.area >= 0) detectarSeparador(grade.slice(hi + 1).map(l => (l || [])[idx.area]));
   const base = [];
   for(let i = hi + 1; i < grade.length; i++){
     const l = grade[i] || [];
@@ -1220,7 +1236,7 @@ function montarBase(grade){
       unidade, municipio: txt(pega(l,'municipio')), geres: txt(pega(l,'geres')),
       tipo: txt(pega(l,'tipo')).toUpperCase(), perfil: txt(pega(l,'perfil')),
       setor: txt(pega(l,'setor')), descricao: txt(pega(l,'descricao')),
-      area: num(pega(l,'area')),
+      area: Math.max(0, num(pega(l,'area'))), areaRaw: txt(pega(l,'area')),
       iniPrevRaw: txt(pega(l,'iniPrev')), iniPrev: parseData(pega(l,'iniPrev')),
       fimPrevRaw: txt(pega(l,'fimPrev')), fimPrev: parseData(pega(l,'fimPrev')),
       iniRealRaw: txt(pega(l,'iniReal')), iniReal: parseData(pega(l,'iniReal')),
@@ -2784,9 +2800,9 @@ function agrupaGrupo(d, chave){
   const m = {};
   d.forEach(r => {
     const k = typeof chave === 'function' ? chave(r) : ((r[chave] || '—').trim() || '—');
-    const o = m[k] = m[k] || {total:0, conc:0, exec:0, inic:0, crit:0, critExec:0, atras:0, plan:0};
+    const o = m[k] = m[k] || {total:0, conc:0, exec:0, inic:0, crit:0, critExec:0, critInic:0, atras:0, plan:0};
     o.total++; o[CHAVE_GRUPO[r.grupo] || 'plan']++;
-    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; }
+    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; else if(r.grupo === 'A iniciar') o.critInic++; }
   });
   return m;
 }
@@ -2932,9 +2948,9 @@ const CHAVE_GRUPO = {'Concluída':'conc','Em execução':'exec','A iniciar':'ini
    resto — sem quebrar a soma das colunas, que continua contando cada entrega uma vez. */
 const SEG_COMP = [
   {k:'atras', nome:'Em atraso',                         cor:'var(--c-atraso)',    v:o => o.atras},
-  {k:'crit',  nome:'Vence em 30 dias',                  cor:'var(--c-critico)',   v:o => o.crit},
+  {k:'crit',  nome:'Vence em 30 dias',                  cor:'var(--c-critico)',   v:o => (o.critExec || 0) + (o.critInic || 0)},
   {k:'exec',  nome:'Em execução',                       cor:'var(--c-prazo)',     v:o => Math.max(0, o.exec - (o.critExec || 0))},
-  {k:'inic',  nome:'A iniciar',                         cor:'var(--c-iniciar)',   v:o => Math.max(0, o.inic - (o.crit - (o.critExec || 0)))},
+  {k:'inic',  nome:'A iniciar',                         cor:'var(--c-iniciar)',   v:o => Math.max(0, o.inic - (o.critInic || 0))},
   {k:'plan',  nome:'A planejar',                        cor:'var(--c-planejar)',  v:o => o.plan},
   {k:'conc',  nome:'Concluídas',                        cor:'var(--c-concluido)', v:o => o.conc}
 ];
@@ -2954,7 +2970,7 @@ const celExec = o => '<td class="num' + (o.exec ? '' : ' zero') + '">' +
   '</td>';
 /* célula de "A iniciar", com o que já está no prazo crítico */
 const celInic = o => {
-  const c = Math.max(0, o.crit - (o.critExec || 0));
+  const c = o.critInic || 0;
   return '<td class="num' + (o.inic ? '' : ' zero') + '">' +
     (o.inic ? '<b style="color:var(--t-iniciar)">' + fmt(o.inic) + '</b>' : fmt(o.inic)) +
     (c ? '<span class="sub-crit" title="dessas, ' + fmt(c) + ' vencem em 30 dias">' + fmt(c) + '</span>' : '') + '</td>';
@@ -2966,10 +2982,10 @@ function abaUnidades(d){
   const m = {};
   d.forEach(r => {
     const o = m[r.unidade] = m[r.unidade] ||
-      {unidade:r.unidade, geres:r.geres, total:0, conc:0, exec:0, inic:0, crit:0, critExec:0, atras:0, plan:0};
+      {unidade:r.unidade, geres:r.geres, total:0, conc:0, exec:0, inic:0, crit:0, critExec:0, critInic:0, atras:0, plan:0};
     o.total++;
     o[CHAVE_GRUPO[r.grupo] || 'plan']++;
-    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; }
+    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; else if(r.grupo === 'A iniciar') o.critInic++; }
     if(!o.geres && r.geres) o.geres = r.geres;
   });
   const linhas = Object.values(m).map(o => Object.assign(o, {taxa: o.total ? o.conc/o.total : 0}));
@@ -2986,7 +3002,7 @@ function abaUnidades(d){
   const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' + (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') +
     '>' + fmt(v) + '</td>';
 
-  const soma = ['total','conc','exec','inic','crit','critExec','atras','plan']
+  const soma = ['total','conc','exec','inic','crit','critExec','critInic','atras','plan']
     .reduce((a,k) => (a[k] = linhas.reduce((s,o) => s + o[k], 0), a), {});
   soma.unidade = 'TOTAL — ' + fmt(linhas.length) + ' unidades';
 
@@ -3021,9 +3037,9 @@ function abaSetores(d){
   const m = {};
   d.forEach(r => {
     const k = setorDe(r);
-    const o = m[k] = m[k] || {unidade:k, tipos:new Set(), total:0, conc:0, exec:0, inic:0, crit:0, critExec:0, atras:0, plan:0};
+    const o = m[k] = m[k] || {unidade:k, tipos:new Set(), total:0, conc:0, exec:0, inic:0, crit:0, critExec:0, critInic:0, atras:0, plan:0};
     o.total++; o[CHAVE_GRUPO[r.grupo] || 'plan']++;
-    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; }
+    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; else if(r.grupo === 'A iniciar') o.critInic++; }
     if(r.tipo) o.tipos.add(r.tipo);
   });
   const linhas = Object.values(m).map(o => Object.assign(o, {taxa: o.total ? o.conc/o.total : 0, tipos:o.tipos.size}));
@@ -3041,7 +3057,7 @@ function abaSetores(d){
 
   const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' + (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') +
     '>' + fmt(v) + '</td>';
-  const soma = ['total','conc','exec','inic','crit','critExec','atras','plan']
+  const soma = ['total','conc','exec','inic','crit','critExec','critInic','atras','plan']
     .reduce((a,k) => (a[k] = linhas.reduce((s,o) => s + o[k], 0), a), {});
 
   document.querySelector('#tab-uni tbody').innerHTML = linhas.length ? linhas.map(o =>
@@ -3187,12 +3203,14 @@ function diagnosticar(){
     impostor[c] = mapa;
   });
 
-  /* área: limites bem folgados por IQR, só acusa valores realmente fora da curva */
-  const areas = LINHAS.map(r => r.area).filter(a => a > 0).sort((a,b) => a-b);
+  /* Área: a distribuição vai de menos de 1 m² a dezenas de milhares, então o IQR direto
+     acusaria como "atípica" qualquer obra grande — dezenas de falsos alarmes. O corte é
+     feito na escala logarítmica, que é onde essa distribuição é simétrica. */
+  const areas = LINHAS.map(r => r.area).filter(a => a > 0).map(Math.log10).sort((a,b) => a-b);
   let limSup = Infinity, limInf = 0;
   if(areas.length >= 8){
     const q1 = areas[Math.floor(areas.length*0.25)], q3 = areas[Math.floor(areas.length*0.75)], iqr = q3-q1;
-    if(iqr > 0){ limSup = q3 + iqr*3; limInf = Math.max(0, q1 - iqr*3); }
+    if(iqr > 0){ limSup = Math.pow(10, q3 + iqr*1.5); limInf = Math.pow(10, q1 - iqr*1.5); }
   }
 
   for(const r of LINHAS){
@@ -3212,6 +3230,24 @@ function diagnosticar(){
     if(r.iniReal && r.fimReal && r.fimReal < r.iniReal)
       add(r, 'Término real', 'Ordem de datas', dbr(r.fimReal),
         'Término real (' + dbr(r.fimReal) + ') é anterior ao início real (' + dbr(r.iniReal) + ').', 'erro');
+    /* data REALIZADA no futuro: é impossível ter executado o que ainda não aconteceu.
+       Importa muito porque a planilha conta como concluída toda linha com término real
+       preenchido — então uma data futura aqui infla o número de entregas concluídas. */
+    for(const [campo, d] of [['Início real', r.iniReal], ['Término real', r.fimReal]]){
+      if(d && d > HOJE)
+        add(r, campo, 'Data realizada no futuro', dbr(d),
+          'Esta data é de execução já realizada, mas está em ' + dbr(d) + ', depois de hoje. ' +
+          (campo === 'Término real'
+            ? 'Enquanto ela estiver aí, a entrega é contada como concluída — provavelmente era uma previsão digitada na coluna errada.'
+            : 'Provavelmente era uma previsão digitada na coluna de início real.'), 'erro');
+    }
+    /* status declarado brigando com as datas registradas */
+    if(r.exec === 'A INICIAR' && r.iniReal)
+      add(r, 'Status de execução', 'Status x datas', r.exec,
+        'A linha está como A INICIAR, mas tem início real em ' + dbr(r.iniReal) + ' — se a obra começou, o status deveria ser EM EXECUÇÃO.', 'atencao');
+    if(r.exec === 'EM EXECUÇÃO' && !r.iniReal && !r.fimReal)
+      add(r, 'Início real', 'Status x datas', '',
+        'A linha está como EM EXECUÇÃO, mas não tem nenhuma data real registrada — falta informar quando começou.', 'atencao');
     /* datas com ano fora do intervalo esperado do projeto — possível troca de dígito */
     for(const [campo, d] of [['Início previsto', r.iniPrev], ['Término previsto', r.fimPrev],
                               ['Início real', r.iniReal], ['Término real', r.fimReal]]){
@@ -3219,10 +3255,17 @@ function diagnosticar(){
         add(r, campo, 'Data incomum', dbr(d),
           'O ano ' + d.getFullYear() + ' é incomum para este cronograma — confira se não houve troca de dígitos.', 'atencao');
     }
+    /* área negativa: não existe metro quadrado negativo — some das somas e vira erro */
+    if(r.areaRaw && num(r.areaRaw) < 0)
+      add(r, 'Área (m²)', 'Área negativa', r.areaRaw,
+        'A área está registrada como “' + r.areaRaw + '”. Não existe área negativa — ' +
+        'esta linha foi somada como zero até a correção.', 'erro');
     /* 3) área com medição muito fora da curva das demais entregas */
     if(r.area > 0 && (r.area > limSup || r.area < limInf))
       add(r, 'Área (m²)', 'Medição atípica', areaTxt(r.area),
-        'Esta área está bem fora do padrão das demais entregas registradas — confirme a medição.', 'atencao');
+        (r.area > limSup ? 'Área muito maior' : 'Área muito menor') +
+        ' que a das demais entregas registradas (padrão entre ' + areaTxt(limInf) + ' e ' + areaTxt(limSup) +
+        ') — confirme a medição, pode ser vírgula fora de lugar.', 'atencao');
     /* 4) município fora da lista oficial de PE / GERES incompatível com o município */
     if(r.municipio){
       if(!(r.municipio in MUNICIPIOS_GERES)){
@@ -3594,12 +3637,12 @@ const PE_BOUNDS = [[-41.55, -9.65], [-34.55, -7.05]];
 const PE_MAX_BOUNDS = [[-42.6, -10.6], [-33.4, -6.1]];
 
 function estatUnidadeMapa(d, unidade){
-  const o = {unidade, geres:'', municipio:'', area:0, total:0, conc:0, exec:0, inic:0, crit:0, critExec:0, atras:0, plan:0};
+  const o = {unidade, geres:'', municipio:'', area:0, total:0, conc:0, exec:0, inic:0, crit:0, critExec:0, critInic:0, atras:0, plan:0};
   d.forEach(r => {
     if(r.unidade !== unidade) return;
     o.total++;
     o[CHAVE_GRUPO[r.grupo] || 'plan']++;
-    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; }
+    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; else if(r.grupo === 'A iniciar') o.critInic++; }
     o.area += r.area || 0;
     if(!o.geres && r.geres) o.geres = r.geres;
     if(!o.municipio && r.municipio) o.municipio = r.municipio;
@@ -3714,11 +3757,25 @@ function criarMapa(){
 
 function abaMapa(d){
   criarMapa();
-  if(!MAPA) return;
+  if(!MAPA){                                  // biblioteca do mapa não carregou (sem internet, CDN bloqueada)
+    $('#sub-mapa').textContent = 'Mapa indisponível nesta máquina';
+    const cx = $('#mapa-leaflet');
+    if(cx && !cx.querySelector('.sem-mapa'))
+      cx.innerHTML = '<div class="sem-mapa" style="padding:60px 24px;text-align:center;color:var(--ink-2)">' +
+        '<div style="font-size:30px;line-height:1;margin-bottom:10px">🗺</div>' +
+        '<div style="font-weight:700;color:var(--navy);font-size:15px;margin-bottom:6px">Não consegui carregar o mapa</div>' +
+        '<div style="font-size:12.5px;max-width:460px;margin:0 auto">O desenho do mapa vem de um endereço na ' +
+        'internet. Sem acesso a ele — rede bloqueada ou máquina offline — as outras abas continuam funcionando ' +
+        'normalmente, porque os dados da planilha já estão carregados.</div></div>';
+    return;
+  }
   const itens = listaMapa(d);
   const totalGeral = itens.reduce((s,i) => s + i.o.total, 0);
+  const semCoord = [...new Set(d.map(r => r.unidade))].filter(n => !COORDS_POR_NOME[norm(n)]);
   $('#sub-mapa').textContent = plural(itens.length, 'unidade com localização cadastrada', 'unidades com localização cadastrada') +
-    ' · ' + plural(totalGeral, 'intervenção no recorte atual', 'intervenções no recorte atual');
+    ' · ' + plural(totalGeral, 'intervenção no recorte atual', 'intervenções no recorte atual') +
+    (semCoord.length ? ' · ' + plural(semCoord.length, 'unidade sem coordenada', 'unidades sem coordenada') +
+      ' fora do mapa: ' + semCoord.map(nomeCurto).join(', ') : '');
   $('#dica-mapa').innerHTML = legendaComp();
 
   const vistos = new Set();
