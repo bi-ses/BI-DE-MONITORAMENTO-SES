@@ -71,6 +71,10 @@ header.topo{background:#fff;padding:18px 24px 0}
 
 /* a rosca é só leitura: o rótulo de % não intercepta o ponteiro para não atrapalhar a dica */
 .pizza-svg text{pointer-events:none}
+/* pavimentos: barra e linha da tabela funcionam como um botão só */
+#tab-pav tbody tr.pav-linha{cursor:pointer}
+#tab-pav tbody tr.pav-sel td{background:var(--fundo-critico)!important;font-weight:600}
+#tab-pav tbody tr.pav-sel td:first-child{box-shadow:inset 3px 0 0 var(--navy)}
 
 /* troca de aba com um respiro — some para quem prefere menos movimento */
 section[data-painel]:not([hidden]){animation:entra .18s ease-out}
@@ -589,6 +593,7 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
       <button class="aba" role="tab" id="aba-execucao" aria-controls="painel-execucao" data-aba="execucao"    aria-selected="false" tabindex="-1">Execução</button>
       <button class="aba" role="tab" id="aba-carteira" aria-controls="painel-carteira" data-aba="carteira"    aria-selected="false" tabindex="-1">Distribuição</button>
       <button class="aba" role="tab" id="aba-unidades" aria-controls="painel-unidades" data-aba="unidades"    aria-selected="false" tabindex="-1">Unidades</button>
+      <button class="aba so-rede" role="tab" id="aba-pavimentos" aria-controls="painel-pavimentos" data-aba="pavimentos" aria-selected="false" tabindex="-1">Pavimentos</button>
       <button class="aba" role="tab" id="aba-consulta" aria-controls="painel-consulta" data-aba="consulta"    aria-selected="false" tabindex="-1">Consulta</button>
       <button class="aba" role="tab" id="aba-mapa" aria-controls="painel-mapa" data-aba="mapa"    aria-selected="false" tabindex="-1">Mapa</button>
     </div>
@@ -825,6 +830,35 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
           <div class="card-s" id="sub-unidades">—</div></div>
         <div class="dica" id="dica-uni"></div>
         <div class="tabela-wrap"><table id="tab-uni"><thead><tr></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="painel-pavimentos" role="tabpanel" aria-labelledby="aba-pavimentos" tabindex="0" data-painel="pavimentos" hidden>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-h" style="display:flex;flex-direction:row;gap:14px;align-items:flex-end;flex-wrap:wrap">
+          <div style="min-width:220px;flex:1 1 auto">
+            <div class="card-t">Intervenções por pavimento</div>
+            <div class="card-s" id="sub-pav">Escolha uma unidade de saúde para abrir os pavimentos</div>
+          </div>
+          <div class="f m" style="min-width:260px;max-width:340px">
+            <label for="pav-uni">Unidade de saúde</label>
+            <select id="pav-uni"></select>
+          </div>
+        </div>
+        <div id="pav-graf"></div>
+        <div class="dica" id="pav-dica"></div>
+        <div class="tabela-wrap" id="pav-wrap"><table id="tab-pav"><thead><tr></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card" id="pav-card-lista" hidden>
+        <div class="card-h" style="display:flex;flex-direction:row;gap:14px;align-items:flex-end;flex-wrap:wrap">
+          <div style="min-width:220px">
+            <div class="card-t" id="pav-t-lista">Entregas do pavimento</div>
+            <div class="card-s" id="pav-sub-lista">—</div>
+          </div>
+          <button class="bs" id="pav-fechar" style="margin-left:auto;padding:7px 14px">Fechar lista</button>
+          <button class="bs" id="pav-csv" style="padding:7px 14px">↓ CSV deste pavimento</button>
+        </div>
+        <div id="pav-corpo"></div>
       </div>
     </section>
 
@@ -1947,7 +1981,7 @@ function barrasH(el, itens, opt){
     const y = 7 + k * (alt + gap);
     const w = it.v > 0 ? Math.max(3, escala(it.v)) : 0;
     const rot = encurtar(it.rot, larguraRot, F_ROT);
-    s += '<g class="linha">';
+    s += '<g class="linha"' + (opt.clique && it.chave !== undefined ? ' data-chave="' + esc(it.chave) + '" style="cursor:pointer"' : '') + '>';
     s += '<rect class="faixa-hover" x="0" y="' + (y-3) + '" width="' + larg + '" height="' + (alt+6) + '" rx="4"></rect>';
     s += '<text class="clab" x="' + (x0-10) + '" y="' + (y + alt/2 + 4) + '" text-anchor="end">' + esc(rot) +
          (rot === it.rot ? '' : '<title>' + esc(it.rot) + '</title>') + '</text>';
@@ -2138,7 +2172,7 @@ function comRolagem(fn){
 }
 const NOME_ABA = {geral:'Visão geral', vencimentos:'Vencimentos', cronograma:'Cronograma',
                   execucao:'Execução', carteira:'Distribuição',
-                  unidades:'Unidades', mapa:'Mapa', consulta:'Consulta',
+                  unidades:'Unidades', pavimentos:'Pavimentos', mapa:'Mapa', consulta:'Consulta',
                   erros:'Erros', semdata:'Sem data', semarea:'Sem área'};
 function resumoImpressao(n){
   const f = [];
@@ -2166,6 +2200,7 @@ function desenhar(){
   if(ABA === 'execucao')    return abaExecucao(d);
   if(ABA === 'carteira')    return abaCarteira(d);
   if(ABA === 'unidades')    return abaUnidades(d);
+  if(ABA === 'pavimentos')  return abaPavimentos(d);
   if(ABA === 'mapa')        return abaMapa(d);
   if(ABA === 'consulta')    return abaConsulta();
   if(ABA === 'erros')       return abaErros();
@@ -2213,7 +2248,6 @@ function abaGeral(d){
   const gN = n => nav.filter(r => r.grupo === n).length;
   const conc = gN('Concluída'), atras = gN('Em atraso'), plan = gN('A planejar');
   const exec = gN('Em execução'), inic = gN('A iniciar'), crit = nav.filter(r => r.critico).length;
-  const proj = gN('Projeto'), fisc = gN('Aguardando o fiscal');
   const critExec = nav.filter(r => r.critico && r.grupo === 'Em execução').length;
   const listaAt = nav.filter(r => r.grupo === 'Em atraso');
   const media = listaAt.length ? Math.round(listaAt.reduce((s,r) => s + r.diasAtraso, 0) / listaAt.length) : 0;
@@ -2231,9 +2265,7 @@ function abaGeral(d){
       atras ? 'média de ' + fmt(media) + ' dias'
             : (nav.some(r => r.fimPrev) ? 'nenhum prazo vencido' : 'nenhuma entrega tem término previsto')],
     ['warn','Vencem em 30 dias', fmt(crit), 'prazo crítico'],
-    ['info','A planejar', fmt(plan) + '<u>' + pc(plan, total) + '</u>', 'sem prazo definido'],
-    ['info','Projeto e fiscal', fmt(proj + fisc),
-      fmt(proj) + ' projeto · ' + fmt(fisc) + ' fiscal']
+    ['info','A planejar', fmt(plan) + '<u>' + pc(plan, total) + '</u>', 'sem prazo definido']
   ].map(cartao).join('');
 
   const cont = GRUPOS.map(x => Object.assign({}, x, {v: nav.filter(r => r.grupo === x.nome).length}));
@@ -3171,6 +3203,120 @@ function abaSetores(d){
   $('#sub-unidades').textContent = 'A carteira da unidade aberta por local. Cada entrega entra em uma única ' +
     'coluna, então concluídas + em execução + a iniciar + em atraso + projeto/fiscal + a planejar = ' +
     'total. O número amarelo ao lado é o que vence nos próximos 30 dias.';
+}
+
+/* --- pavimentos: abre uma unidade por dentro, e o pavimento escolhido mostra as
+       linhas da planilha como elas estão --- */
+let PAV_UNI = '', PAV_SETOR = null;
+const COL_PAV = [
+  ['unidade','Pavimento / setor',''], ['total','Total','num'], ['conc','Concluídas','num'],
+  ['exec','Em execução','num'], ['inic','A iniciar','num'], ['atras','Em atraso','num'],
+  ['outros','Projeto/fiscal','num'], ['plan','A planejar','num'], ['taxa','Composição','']
+];
+let ordemPav = {col:'unidade', dir:1};
+
+function agruparPorSetor(d){
+  const m = {};
+  d.forEach(r => {
+    const k = setorDe(r);
+    const o = m[k] = m[k] || {unidade:k, total:0, conc:0, exec:0, inic:0, proj:0, fisc:0,
+                              crit:0, critExec:0, critInic:0, atras:0, plan:0};
+    o.total++; o[CHAVE_GRUPO[r.grupo] || 'plan']++;
+    if(r.critico){ o.crit++; if(r.grupo === 'Em execução') o.critExec++; else if(r.grupo === 'A iniciar') o.critInic++; }
+  });
+  return Object.values(m);
+}
+
+function abaPavimentos(d){
+  /* a lista de unidades vem da base inteira para o seletor não sumir com o filtro */
+  const sel = $('#pav-uni');
+  const unidades = [...new Set(LINHAS.map(r => r.unidade))].sort((a,b) => nomeCurto(a).localeCompare(nomeCurto(b),'pt-BR'));
+  if(PAV_UNI && !unidades.includes(PAV_UNI)) PAV_UNI = '';
+  const opcoes = '<option value="">— selecione uma unidade —</option>' +
+    unidades.map(u => '<option value="' + esc(u) + '">' + esc(siglaDe(u) + ' · ' + nomeCurto(u)) + '</option>').join('');
+  if(sel.dataset.lista !== opcoes){ sel.innerHTML = opcoes; sel.dataset.lista = opcoes; }
+  sel.value = PAV_UNI;
+
+  const daUnidade = PAV_UNI ? d.filter(r => r.unidade === PAV_UNI) : [];
+  const linhas = agruparPorSetor(daUnidade);
+  linhas.sort((a,b) => {
+    if(ordemPav.col === 'unidade')
+      return (nivelPavimento(a.unidade) - nivelPavimento(b.unidade) ||
+              a.unidade.localeCompare(b.unidade,'pt-BR')) * ordemPav.dir;
+    if(ordemPav.col === 'outros') return ((a.proj+a.fisc) - (b.proj+b.fisc)) * ordemPav.dir || b.total - a.total;
+    if(ordemPav.col === 'taxa') return ((a.conc/a.total) - (b.conc/b.total)) * ordemPav.dir;
+    return (a[ordemPav.col] - b[ordemPav.col]) * ordemPav.dir || b.total - a.total;
+  });
+
+  if(!PAV_UNI){
+    $('#sub-pav').textContent = 'Escolha uma unidade de saúde para abrir os pavimentos';
+    $('#pav-graf').innerHTML = ''; $('#pav-dica').innerHTML = '';
+    $('#pav-wrap').hidden = true;
+    $('#pav-card-lista').hidden = true;
+    return;
+  }
+  $('#pav-wrap').hidden = false;
+  if(!linhas.length){
+    $('#sub-pav').textContent = nomeCurto(PAV_UNI) + ' não tem nenhuma entrega no recorte de filtros atual.';
+    $('#pav-graf').innerHTML = ''; $('#pav-dica').innerHTML = '';
+    document.querySelector('#tab-pav thead tr').innerHTML = '';
+    document.querySelector('#tab-pav tbody').innerHTML = '';
+    $('#pav-card-lista').hidden = true;
+    return;
+  }
+  const nAt = daUnidade.filter(r => r.grupo === 'Em atraso').length;
+  $('#sub-pav').textContent = siglaDe(PAV_UNI) + ' · ' + nomeCurto(PAV_UNI) + ' — ' +
+    plural(daUnidade.length, 'entrega', 'entregas') + ' em ' +
+    plural(linhas.length, 'pavimento/setor', 'pavimentos e setores') +
+    (nAt ? ' · ' + plural(nAt, 'em atraso', 'em atraso') : '') +
+    ' · clique num pavimento para ver as linhas da planilha';
+
+  /* gráfico na ordem do prédio, clicável */
+  const ordemPredio = linhas.slice().sort((a,b) =>
+    nivelPavimento(a.unidade) - nivelPavimento(b.unidade) || a.unidade.localeCompare(b.unidade,'pt-BR'));
+  $('#pav-graf').innerHTML = '<div class="plot" id="pav-plot"></div>';
+  barrasH($('#pav-plot'), ordemPredio.map(o => ({
+    rot:o.unidade, v:o.total, vtxt:fmt(o.total), cor:'var(--c-prazo)', tip:o.unidade + ' — total de entregas',
+    v2:o.atras, v2txt:fmt(o.atras), cor2:'var(--c-atraso)', tip2:o.unidade + ' — em atraso',
+    chave:o.unidade
+  })), {alvo: Math.max(150, Math.min(420, ordemPredio.length*32 + 20)), altMax:26,
+        aria:'entregas por pavimento', clique:true});
+  $('#pav-dica').innerHTML = legendaComp();
+  document.querySelector('#tab-pav thead tr').innerHTML = cabecalho(COL_PAV, ordemPav);
+  const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' + (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') +
+    '>' + fmt(v) + '</td>';
+  const soma = ['total','conc','exec','inic','proj','fisc','crit','critExec','critInic','atras','plan']
+    .reduce((a,k) => (a[k] = linhas.reduce((s,o) => s + o[k], 0), a), {});
+  document.querySelector('#tab-pav tbody').innerHTML = linhas.map(o =>
+    '<tr class="pav-linha' + (o.unidade === PAV_SETOR ? ' pav-sel' : '') + '" data-setor="' + esc(o.unidade) + '">' +
+    '<td class="cel-uni"><span title="' + esc(o.unidade) + '">' + esc(o.unidade) + '</span></td>' +
+    '<td class="num"><b>' + fmt(o.total) + '</b></td>' +
+    cel(o.conc, 'var(--t-conc)') + celExec(o) + celInic(o) + cel(o.atras, 'var(--t-atraso)') +
+    celOutros(o) + cel(o.plan) + '<td>' + barraComp(o) + '</td></tr>').join('') +
+    '<tr class="total-linha"><td>TOTAL — ' + fmt(linhas.length) +
+    (linhas.length === 1 ? ' pavimento/setor' : ' pavimentos e setores') + '</td>' +
+    '<td class="num">' + fmt(soma.total) + '</td><td class="num">' + fmt(soma.conc) + '</td>' +
+    celExec(soma) + celInic(soma) + '<td class="num">' + fmt(soma.atras) + '</td>' + celOutros(soma) +
+    '<td class="num">' + fmt(soma.plan) + '</td><td>' + barraComp(soma) + '</td></tr>';
+
+  /* lista da planilha do pavimento escolhido */
+  if(PAV_SETOR && !linhas.some(o => o.unidade === PAV_SETOR)) PAV_SETOR = null;
+  const card = $('#pav-card-lista');
+  if(!PAV_SETOR){ card.hidden = true; return; }
+  const doSetor = daUnidade.filter(r => setorDe(r) === PAV_SETOR)
+    .sort((a,b) => a.linha - b.linha);
+  card.hidden = false;
+  $('#pav-t-lista').textContent = PAV_SETOR;
+  $('#pav-sub-lista').textContent = siglaDe(PAV_UNI) + ' · ' + plural(doSetor.length, 'entrega', 'entregas') +
+    ' neste pavimento, como estão na planilha';
+  $('#pav-corpo').innerHTML = notaPlanilha('As colunas à direita são a linha da planilha deste pavimento, ' +
+      'sem nenhuma alteração.') +
+    '<div class="tabela-wrap"><table>' + colgroupPlanilha([68, 116]) +
+    '<thead><tr class="orig-cab"><th class="num col-fixa">Linha</th><th class="cen">Situação</th>' +
+    cabecalhoPlanilha() + '</tr></thead><tbody>' +
+    doSetor.map(r => '<tr><td class="num col-fixa">' + fmt(r.linha) + '</td>' +
+      '<td class="cen">' + selosStatus(r) + '</td>' + celulasPlanilha(r) + '</tr>').join('') +
+    '</tbody></table></div>';
 }
 
 /* --- mapa --- */
@@ -4120,6 +4266,33 @@ document.addEventListener('click', e => {
 });
 liga('#g-ordem','change', () => abaGantt(filtradas()));
 liga('#g-exibir','change', () => abaGantt(filtradas()));
+liga('#pav-uni','change', e => { PAV_UNI = e.target.value; PAV_SETOR = null; abaPavimentos(filtradas()); });
+liga('#pav-fechar','click', () => { PAV_SETOR = null; abaPavimentos(filtradas()); });
+document.querySelector('#tab-pav thead').addEventListener('click', e => {
+  const th = e.target.closest('th'); if(!th) return;
+  ordemPav = {col:th.dataset.k, dir: ordemPav.col === th.dataset.k ? -ordemPav.dir : (th.dataset.k === 'unidade' ? 1 : -1)};
+  abaPavimentos(filtradas());
+});
+document.querySelector('#tab-pav tbody').addEventListener('click', e => {
+  const tr = e.target.closest('.pav-linha'); if(!tr) return;
+  PAV_SETOR = PAV_SETOR === tr.dataset.setor ? null : tr.dataset.setor;
+  abaPavimentos(filtradas());
+  if(PAV_SETOR) setTimeout(() => $('#pav-card-lista').scrollIntoView({behavior:'smooth', block:'start'}), 60);
+});
+document.addEventListener('click', e => {
+  const hit = e.target.closest('#pav-plot [data-chave]'); if(!hit) return;
+  PAV_SETOR = PAV_SETOR === hit.dataset.chave ? null : hit.dataset.chave;
+  abaPavimentos(filtradas());
+  if(PAV_SETOR) setTimeout(() => $('#pav-card-lista').scrollIntoView({behavior:'smooth', block:'start'}), 60);
+});
+liga('#pav-csv','click', () => {
+  if(!PAV_SETOR) return;
+  const sd = filtradas().filter(r => r.unidade === PAV_UNI && setorDe(r) === PAV_SETOR).sort((a,b) => a.linha - b.linha);
+  if(!sd.length) return;
+  baixarCSV('pavimento-' + siglaDe(PAV_UNI).toLowerCase(),
+    ['Linha na planilha','Situação'].concat(CABECALHO_PLANILHA.map(c => c.rot + ' (col ' + c.col + ')')),
+    sd.map(r => [r.linha, r.status].concat(r._bruto || [])));
+});
 liga('#g-periodo','change', () => abaGantt(filtradas()));
 liga('#b-venc-todos','click', () => { MES_SEL = null; abaVencimentos(filtradas()); });
 document.querySelector('#tab-venc thead').addEventListener('click', e => {
