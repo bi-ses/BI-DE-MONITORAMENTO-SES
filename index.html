@@ -105,6 +105,7 @@ section[data-painel]:not([hidden]){animation:entra .18s ease-out}
 .diag-pop button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
   text-align:left;background:none;border:0;border-radius:6px;padding:8px 10px;font-size:12.5px;color:var(--ink);cursor:pointer;white-space:nowrap}
 .diag-pop button:hover{background:var(--surface-2)}
+#diag-sair{border-top:1px solid var(--grid);margin-top:4px;color:var(--navy);font-weight:600}
 .diag-pop .n{background:var(--critical);color:#fff;border-radius:999px;font-size:10.5px;font-weight:700;padding:1px 8px;flex:0 0 auto}
 .diag-pop .n.zero{background:var(--grid);color:var(--muted)}
 .diag-top{padding:2px 12px 8px;font-size:11px;color:var(--muted);line-height:1.7}
@@ -603,6 +604,7 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
           <div class="diag-top" id="diag-top-semdata"></div>
           <button type="button" role="menuitem" data-aba="semarea"><span>📐 Intervenções sem área</span><span class="n" id="diag-n-semarea">0</span></button>
           <div class="diag-top" id="diag-top-semarea"></div>
+          <button type="button" role="menuitem" id="diag-sair" data-voltar hidden><span>← Sair do diagnóstico</span></button>
         </div>
       </div>
       <button class="ib" id="b-refresh" title="Atualizar agora" aria-label="Atualizar agora">↻</button>
@@ -853,7 +855,8 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
             <div class="card-t">Erros e inconsistências na planilha</div>
             <div class="card-s" id="sub-erros">—</div>
           </div>
-          <button class="bs" id="b-csv-erros" style="margin-left:auto;padding:7px 14px">↓ CSV para correção</button>
+          <button class="bs b-voltar" data-voltar style="margin-left:auto;padding:7px 14px">← Voltar ao painel</button>
+          <button class="bs" id="b-csv-erros" style="padding:7px 14px">↓ CSV para correção</button>
         </div>
         <div class="kpis" id="kpis-erros" style="padding:0 18px 16px"></div>
         <div id="graf-erros"></div>
@@ -868,7 +871,8 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
             <div class="card-t">Intervenções sem nenhuma data registrada</div>
             <div class="card-s" id="sub-semdata">—</div>
           </div>
-          <button class="bs" id="b-csv-semdata" style="margin-left:auto;padding:7px 14px">↓ CSV desta lista</button>
+          <button class="bs b-voltar" data-voltar style="margin-left:auto;padding:7px 14px">← Voltar ao painel</button>
+          <button class="bs" id="b-csv-semdata" style="padding:7px 14px">↓ CSV desta lista</button>
         </div>
         <div class="kpis" id="kpis-semdata" style="padding:0 18px 16px"></div>
         <div id="graf-semdata"></div>
@@ -883,7 +887,8 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
             <div class="card-t">Intervenções sem área informada</div>
             <div class="card-s" id="sub-semarea">—</div>
           </div>
-          <button class="bs" id="b-csv-semarea" style="margin-left:auto;padding:7px 14px">↓ CSV desta lista</button>
+          <button class="bs b-voltar" data-voltar style="margin-left:auto;padding:7px 14px">← Voltar ao painel</button>
+          <button class="bs" id="b-csv-semarea" style="padding:7px 14px">↓ CSV desta lista</button>
         </div>
         <div class="kpis" id="kpis-semarea" style="padding:0 18px 16px"></div>
         <div id="graf-semarea"></div>
@@ -2107,7 +2112,12 @@ const cartao = ([c,rot,n,sub,acao]) => {
 };
 
 /* ------------------------------------------------------------- abas */
+/* Estando numa aba de diagnóstico, a bandeirinha vira a porta de saída: clicar nela
+   devolve o painel de onde se veio, em vez de só reabrir o menu. */
+let ABA_ANTES_DIAG = 'geral';
+const abaDeDiagnostico = a => a === 'erros' || a === 'semdata' || a === 'semarea';
 function trocarAba(nome, focar){
+  if(!abaDeDiagnostico(nome)) ABA_ANTES_DIAG = nome;
   ABA = nome;
   $$('.aba').forEach(b => {
     const sel = b.dataset.aba === nome;
@@ -2117,7 +2127,12 @@ function trocarAba(nome, focar){
   });
   $$('section[data-painel]').forEach(s => s.hidden = s.dataset.painel !== nome);
   const diag = nome === 'erros' || nome === 'semdata' || nome === 'semarea';
-  $('#b-diag')?.classList.toggle('ativo', diag);
+  const bd = $('#b-diag');
+  if(bd){
+    bd.classList.toggle('ativo', diag);
+    bd.title = 'Diagnóstico de dados';
+    bd.setAttribute('aria-label', bd.title);
+  }
   desenhar();
 }
 function comRolagem(fn){
@@ -4035,16 +4050,22 @@ liga('#b-tema','click', () => {
 });
 
 /* menu discreto de diagnostico (Erros / Sem data) */
+function sairDoDiagnostico(){
+  trocarAba(abaDeDiagnostico(ABA_ANTES_DIAG) ? 'geral' : ABA_ANTES_DIAG, true);
+}
 liga('#b-diag','click', e => {
   e.stopPropagation();
   const pop = $('#diag-pop'), aberto = !pop.hidden;
   pop.hidden = aberto;
   $('#b-diag').setAttribute('aria-expanded', String(!aberto));
+  const sair = $('#diag-sair');
+  if(sair) sair.hidden = !abaDeDiagnostico(ABA);   // só faz sentido oferecer saída de dentro
 });
+document.addEventListener('click', e => { if(e.target.closest('[data-voltar]')) sairDoDiagnostico(); });
 $$('#diag-pop button').forEach(b => b.addEventListener('click', () => {
   $('#diag-pop').hidden = true;
   $('#b-diag').setAttribute('aria-expanded', 'false');
-  trocarAba(b.dataset.aba);
+  if(b.dataset.aba) trocarAba(b.dataset.aba);     // o item de saída não tem aba: quem trata é o data-voltar
 }));
 document.addEventListener('click', e => {
   if(!e.target.closest('.diag-wrap')){ const p = $('#diag-pop'); if(p && !p.hidden){ p.hidden = true; $('#b-diag')?.setAttribute('aria-expanded','false'); } }
