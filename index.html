@@ -1339,7 +1339,8 @@ const semNenhumaData = r => !r.iniPrev && !r.fimPrev && !r.iniReal && !r.fimReal
 /* área em m² é campo de preenchimento como as datas: vazio ou zero conta como pendente */
 const semArea = r => !(r.area > 0);
 const gestaoAnterior = r => semNenhumaData(r) && r.concluido;
-const faltaPreenchimento = r => semNenhumaData(r) && !r.concluido;
+const aPlanejarSemData = r => semNenhumaData(r) && !r.concluido && r.status === 'A PLANEJAR';
+const faltaPreenchimento = r => semNenhumaData(r) && !r.concluido && r.status !== 'A PLANEJAR';
 
 
 /* "No prazo", "dentro do prazo" e "prazo crítico" digitados na planilha são a mesma
@@ -3622,7 +3623,8 @@ function graficoDiagnostico(sel, itens, chave, ehErro, titulo, legenda, corA, co
   })), {alvo: Math.min(320, Math.max(140, linhas.length * 30 + 16)), altMax:26, aria:'ocorrências por unidade'});
 }
 /* quem mais deixa data em branco, em número e em proporção da própria carteira */
-function graficoSemData(sel, lista, base, anterior, todas){
+function graficoSemData(sel, lista, base, modo){
+  const anterior = modo === 'anterior', todas = modo === 'todas', planejar = modo === 'planejar';
   const el = $(sel);
   if(!el) return;
   const porSetor = !!ESCOPO();               // conta de unidade: o "onde" é o pavimento/setor
@@ -3637,18 +3639,21 @@ function graficoSemData(sel, lista, base, anterior, todas){
   const onde = porSetor ? 'Pavimentos e setores' : 'Unidades';
   el.innerHTML = '<div class="card-h" style="border-top:1px solid var(--grid)">' +
     '<div class="card-t">' + (todas ? onde + ' com mais entregas sem data'
+                              : planejar ? onde + ' com mais entregas a planejar'
                               : anterior ? onde + ' com mais concluídas sem data'
                               : onde + ' que mais deixam data em branco') + '</div>' +
     '<div class="card-s">' + (todas
-      ? 'Somando as que faltam preencher e as que já estão concluídas'
+      ? 'Somando as três listas: falta preencher, a planejar e concluídas sem data'
+      : planejar
+        ? 'Entregas ainda não planejadas, e quanto representam do total do próprio grupo'
       : anterior
         ? 'Concluídas sem data registrada, e quanto representam do total do próprio grupo'
-        : 'Quantas entregas sem nenhuma data, e quanto isso representa do total do próprio grupo') +
+        : 'Entregas que já saíram do planejamento e seguem sem nenhuma data') +
       avisoCorte(linhas.length, todasLinhas.length, porSetor ? 'locais' : 'unidades') +
     '</div></div><div class="plot" id="' + sel.slice(1) + '-plot"></div>';
   barrasH($(sel + '-plot'), linhas.map(l => ({
     rot: porSetor ? l.u : siglaDe(l.u), v: l.n, vtxt: fmt(l.n) + '  ·  ' + fmt1(l.pct) + '%',
-    cor: todas ? 'var(--c-prazo)' : anterior ? 'var(--c-concluido)' : 'var(--c-planejar)',
+    cor: todas ? 'var(--c-prazo)' : anterior ? 'var(--c-concluido)' : planejar ? 'var(--c-planejar)' : 'var(--c-critico)',
     tip: l.u + (todas ? ' — entregas sem nenhuma data'
         : anterior ? ' — concluídas sem data' : ' — entregas sem nenhuma data')
   })), {alvo: Math.min(320, Math.max(140, linhas.length * 30 + 16)), altMax:26,
@@ -3727,7 +3732,9 @@ function abaErros(){
     '</tr></thead><tbody>' + corpo + '</tbody></table></div>';
 }
 
-let MODO_SEMDATA = 'falta';   // 'falta' = o que precisa ser preenchido · 'anterior' = concluídas sem data · 'todas' = as duas
+/* 'falta' = precisa de data · 'planejar' = ainda não planejada, sem data é o normal ·
+   'anterior' = concluídas sem data · 'todas' = tudo junto */
+let MODO_SEMDATA = 'falta';
 let MODO_SEMAREA = 'falta';   // mesma lógica para a coluna Área (m²)
 
 /* Intervenções sem a área em m² preenchida. Segue a mesma regra das datas: obra já
@@ -3825,62 +3832,76 @@ function graficoSemArea(lista, base, anterior, todas){
 function abaSemData(){
   const base = filtradas();
   const semData = base.filter(faltaPreenchimento);
+  const planejar = base.filter(aPlanejarSemData);
   const herdadas = base.filter(gestaoAnterior);
   const total = base.length;
-  if(MODO_SEMDATA === 'anterior' && !herdadas.length && semData.length) MODO_SEMDATA = 'falta';
-  const anterior = MODO_SEMDATA === 'anterior', todas = MODO_SEMDATA === 'todas';
-  const lista = todas ? semData.concat(herdadas) : anterior ? herdadas : semData;
-  const somaSemData = semData.length + herdadas.length;
+  const vazio = {falta:!semData.length, planejar:!planejar.length, anterior:!herdadas.length};
+  if(vazio[MODO_SEMDATA] && !vazio.falta) MODO_SEMDATA = 'falta';
+  const modo = MODO_SEMDATA;
+  const anterior = modo === 'anterior', todas = modo === 'todas';
+  const lista = todas ? semData.concat(planejar, herdadas)
+              : modo === 'planejar' ? planejar
+              : anterior ? herdadas : semData;
+  const somaSemData = semData.length + planejar.length + herdadas.length;
 
-  $('#sub-semdata').textContent = (todas
-    ? 'Exibindo todas as entregas sem nenhuma data, concluídas ou não.'
-    : anterior
-      ? 'Exibindo as concluídas sem data — obra já entregue, fora da estatística de preenchimento.'
-      : 'Exibindo o que falta preencher. As concluídas sem data ficam em outra lista.') +
-    (recorteAtivo() ? ' Recorte filtrado.' : '') + ' Clique nos cartões para trocar de lista.';
+  $('#sub-semdata').textContent = ({
+    todas:    'Exibindo todas as entregas sem nenhuma data, de qualquer situação.',
+    planejar: 'Exibindo as que ainda estão a planejar — sem data é o esperado, não é falha de preenchimento.',
+    anterior: 'Exibindo as concluídas sem data — obra já entregue, fora da estatística de preenchimento.',
+    falta:    'Exibindo o que realmente falta preencher: entregas já em andamento, a iniciar, em projeto ou com o fiscal.'
+  }[modo]) + (recorteAtivo() ? ' Recorte filtrado.' : '') + ' Clique nos cartões para trocar de lista.';
 
   $('#kpis-semdata').innerHTML = [
     cartao(['warn','Falta preencher', fmt(semData.length),
       pc(semData.length, total) + ' de ' + fmt(total) + (recorteAtivo() ? ' no recorte' : ' na planilha'),
-      {id:'falta', ativo: MODO_SEMDATA === 'falta', dica:'Ver só as entregas que precisam de data'}]),
+      {id:'falta', ativo: modo === 'falta', dica:'Ver só as entregas que precisam de data'}]),
+    cartao(['info','A planejar', fmt(planejar.length),
+      'sem data é o esperado aqui',
+      {id:'planejar', ativo: modo === 'planejar', dica:'Ver as que ainda estão a planejar'}]),
     cartao(['good','Concluído sem data', fmt(herdadas.length),
       pc(herdadas.length, total) + ' do total, fora da cobrança',
       {id:'anterior', ativo: anterior, dica:'Ver só as concluídas sem data'}]),
     cartao(['info','Total sem data', fmt(somaSemData),
-      pc(somaSemData, total) + ' do total, concluídas ou não',
-      {id:'todas', ativo: todas, dica:'Ver as duas listas juntas'}])
+      pc(somaSemData, total) + ' do total, em qualquer situação',
+      {id:'todas', ativo: todas, dica:'Ver as três listas juntas'}])
   ].join('');
 
   if(!lista.length){
     $('#graf-semdata').innerHTML = '';
     $('#semdata-corpo').innerHTML = estadoVazioDiag(
       todas ? 'Todas as entregas têm ao menos uma data'
+      : modo === 'planejar' ? 'Nenhuma entrega a planejar neste recorte'
       : anterior ? 'Nenhuma concluída sem data neste recorte'
-      : herdadas.length ? 'Nada pendente de preenchimento' : 'Todas as entregas têm ao menos uma data',
+      : 'Nada pendente de preenchimento',
       todas ? 'Nenhuma entrega deste recorte está sem data.'
+      : modo === 'planejar' ? 'Não há entregas a planejar sem data neste recorte.'
       : anterior ? 'Não há entregas concluídas sem data neste recorte.'
-      : herdadas.length
-        ? 'As ' + fmt(herdadas.length) + ' entregas sem data neste recorte estão como CONCLUÍDO — obra já entregue, não contam como falta de preenchimento.'
-        : 'Não encontrei nenhuma entrega sem nenhuma data de início ou término preenchida.');
+      : 'Toda entrega já em andamento, a iniciar, em projeto ou com o fiscal tem ao menos uma data registrada.');
     return;
   }
 
-  graficoSemData('#graf-semdata', lista, base, anterior, todas);
+  graficoSemData('#graf-semdata', lista, base, modo);
 
   lista.sort((a,b) => a.unidade.localeCompare(b.unidade, 'pt-BR') || a.linha - b.linha);
+  const selo = r => gestaoAnterior(r) ? '<span class="badge b-good">concluída</span>'
+                  : aPlanejarSemData(r) ? '<span class="badge b-mut">a planejar</span>'
+                  : '<span class="badge b-warn">preencher</span>';
   const corpo = lista.map(r =>
     '<tr><td class="num col-fixa">' + fmt(r.linha) +
-      (todas ? '<br><span class="badge ' + (gestaoAnterior(r) ? 'b-good">concluída' : 'b-warn">preencher') + '</span>' : '') + '</td>' +
+      (todas ? '<br>' + selo(r) : '') + '</td>' +
     '<td class="cen"><span class="sg" style="margin:0" title="' + esc(r.unidade) + '">' + esc(siglaDe(r.unidade)) + '</span></td>' +
     celulasPlanilha(r) + '</tr>').join('');
 
   $('#semdata-corpo').innerHTML =
     notaPlanilha(todas
-      ? 'As duas listas juntas. O selo ao lado da linha diz se a entrega precisa de data ou se já está concluída.'
+      ? 'As três listas juntas. O selo ao lado da linha diz se a entrega precisa de data, se ainda está a planejar ou se já está concluída.'
+      : modo === 'planejar'
+        ? 'Estas entregas ainda estão a planejar: não ter data é o esperado. Ficam fora da cobrança de preenchimento.'
       : anterior
         ? 'Estas entregas estão como CONCLUÍDO e sem data: obra já entregue. Não precisam de preenchimento.'
-        : 'As quatro colunas de data aparecem vazias — é exatamente o que falta preencher.' +
-          (herdadas.length ? ' Outras <b>' + fmt(herdadas.length) + '</b> concluídas sem data estão no cartão ao lado.' : '')) +
+        : 'As quatro colunas de data aparecem vazias e a entrega já saiu do planejamento — é exatamente o que falta preencher.' +
+          (planejar.length ? ' Outras <b>' + fmt(planejar.length) + '</b> a planejar e <b>' + fmt(herdadas.length) +
+           '</b> concluídas sem data estão nos cartões ao lado.' : '')) +
     '<div class="tabela-wrap"><table>' + colgroupPlanilha([68, 104]) +
     '<thead><tr class="orig-cab">' +
     '<th class="num col-fixa">Linha</th><th class="cen">Unidade</th>' + cabecalhoPlanilha() +
@@ -4443,13 +4464,15 @@ liga('#b-csv-semarea','click', () => {
       r.concluido ? 'concluída sem área' : 'falta preencher'].concat(r._bruto || [])));
 });
 liga('#b-csv-semdata','click', () => {
-  const anterior = MODO_SEMDATA === 'anterior', todas = MODO_SEMDATA === 'todas';
-  const sd = filtradas().filter(todas ? semNenhumaData : anterior ? gestaoAnterior : faltaPreenchimento);
+  const m = MODO_SEMDATA;
+  const filtro = {todas:semNenhumaData, anterior:gestaoAnterior, planejar:aPlanejarSemData, falta:faltaPreenchimento}[m];
+  const sd = filtradas().filter(filtro);
   if(!sd.length) return;
-  baixarCSV(todas ? 'todas-sem-data' : anterior ? 'concluidas-sem-data' : 'intervencoes-sem-data',
+  baixarCSV({todas:'todas-sem-data', anterior:'concluidas-sem-data', planejar:'a-planejar-sem-data',
+             falta:'intervencoes-sem-data'}[m],
     ['Linha na planilha','Sigla','Origem'].concat(CABECALHO_PLANILHA.map(c => c.rot + ' (col ' + c.col + ')')),
     sd.map(r => [r.linha, siglaDe(r.unidade),
-      gestaoAnterior(r) ? 'concluída sem data' : 'falta preencher'].concat(r._bruto || [])));
+      gestaoAnterior(r) ? 'concluída sem data' : aPlanejarSemData(r) ? 'a planejar' : 'falta preencher'].concat(r._bruto || [])));
 });
 
 let rzt;
