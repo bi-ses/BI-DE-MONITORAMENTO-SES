@@ -88,6 +88,14 @@ section[data-painel]:not([hidden]){animation:entra .18s ease-out}
 .barra-in{max-width:1500px;margin:0 auto;padding:0 24px;display:flex;align-items:center;
   gap:18px;flex-wrap:wrap}
 .abas{display:flex;gap:2px;flex-wrap:wrap}
+/* chave entre os dois painéis: o de entregas e o de repactuações */
+.paineis{display:flex;gap:3px;background:var(--surface-2);border:1px solid var(--grid);
+  border-radius:999px;padding:3px;margin:6px 0}
+.pn{background:none;border:0;border-radius:999px;padding:6px 15px;font-size:12.5px;font-weight:700;
+  color:var(--muted);white-space:nowrap}
+.pn:hover{color:var(--navy-2)}
+.pn[aria-selected="true"]{background:var(--navy);color:var(--plane)}
+body.em-repac .diag-wrap{display:none}
 .aba{background:none;border:0;padding:13px 16px 11px;font-size:13.5px;font-weight:600;
   color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
 .aba:hover{color:var(--navy-2)}
@@ -257,8 +265,21 @@ td.cen{text-align:center;white-space:nowrap}
 .b-crit{background:#fbe4e4;color:#8f1f1f} .b-warn{background:#fdf0d2;color:#7a5600}
 .b-ser{background:#fce7dc;color:#8a3f18}  .b-info{background:#e3edfb;color:#164a86}
 .b-good{background:#dcf3dc;color:#0a5c0a} .b-mut{background:#edf0f4;color:#48546a}
+/* deslocamento de prazo: o sinal precisa ser lido antes do número */
+td.delta{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700}
+td.delta.mais{color:var(--t-atraso)} td.delta.menos{color:var(--t-conc)} td.delta.igual{color:var(--muted);font-weight:600}
+.prazo-cel{white-space:nowrap;font-variant-numeric:tabular-nums}
+.prazo-cel .ate{color:var(--muted);padding:0 3px}
+.rep-linha{cursor:default}
+tbody tr.rep-uni{cursor:pointer}
+.nota-rep{font-size:12px;color:var(--ink-2);padding:14px 18px 0;line-height:1.6}
+.nota-rep b{color:var(--navy)}
+.matriz td.zero,.matriz th.zero{color:var(--c-planejar)}
 .cel-desc{min-width:190px;max-width:330px} .cel-uni{min-width:180px;max-width:300px}
 .cel-desc,.cel-uni{overflow-wrap:anywhere}
+td.col-con,th.col-con{max-width:150px}
+td.col-mot,th.col-mot{max-width:172px}
+td.col-con span,td.col-mot span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* células que reproduzem a planilha: preserva espaços e quebras como foram digitados */
 #tab,#erros-corpo table,#semdata-corpo table{table-layout:fixed}
 td.verb{white-space:pre-wrap;overflow-wrap:anywhere;max-width:300px;min-width:88px;font-variant-numeric:tabular-nums}
@@ -586,7 +607,11 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
 
 <nav class="barra">
   <div class="barra-in">
-    <div class="abas" role="tablist">
+    <div class="paineis" role="tablist" aria-label="Escolha do painel">
+      <button class="pn" type="button" role="tab" data-modo="entregas" aria-selected="true">Entregas</button>
+      <button class="pn" type="button" role="tab" data-modo="repac" aria-selected="false">Repactuações</button>
+    </div>
+    <div class="abas" id="abas-entregas" role="tablist">
       <button class="aba" role="tab" id="aba-geral" aria-controls="painel-geral" data-aba="geral"       aria-selected="true" tabindex="0">Visão geral</button>
       <button class="aba" role="tab" id="aba-vencimentos" aria-controls="painel-vencimentos" data-aba="vencimentos" aria-selected="false" tabindex="-1">Vencimentos</button>
       <button class="aba" role="tab" id="aba-cronograma" aria-controls="painel-cronograma" data-aba="cronograma"  aria-selected="false" tabindex="-1">Cronograma</button>
@@ -596,6 +621,12 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
       <button class="aba so-rede" role="tab" id="aba-pavimentos" aria-controls="painel-pavimentos" data-aba="pavimentos" aria-selected="false" tabindex="-1">Pavimentos</button>
       <button class="aba" role="tab" id="aba-consulta" aria-controls="painel-consulta" data-aba="consulta"    aria-selected="false" tabindex="-1">Consulta</button>
       <button class="aba" role="tab" id="aba-mapa" aria-controls="painel-mapa" data-aba="mapa"    aria-selected="false" tabindex="-1">Mapa</button>
+    </div>
+    <div class="abas" id="abas-repac" role="tablist" hidden>
+      <button class="aba" role="tab" id="aba-rgeral" aria-controls="painel-rgeral" data-aba="rgeral" aria-selected="true" tabindex="0">Visão geral</button>
+      <button class="aba" role="tab" id="aba-rmotivos" aria-controls="painel-rmotivos" data-aba="rmotivos" aria-selected="false" tabindex="-1">Motivos</button>
+      <button class="aba so-rede" role="tab" id="aba-runidades" aria-controls="painel-runidades" data-aba="runidades" aria-selected="false" tabindex="-1">Unidades</button>
+      <button class="aba" role="tab" id="aba-rregistros" aria-controls="painel-rregistros" data-aba="rregistros" aria-selected="false" tabindex="-1">Registros</button>
     </div>
     <div class="estado-in">
       <span class="pill"><span class="dot" id="dot"></span><span id="estado">Sem fonte de dados</span></span>
@@ -634,7 +665,7 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
 
   <div id="painel" hidden>
     <div class="card ident" id="ident-uni" hidden></div>
-    <div class="card filtros">
+    <div class="card filtros" id="card-filtros">
       <div class="f u"><label id="lb-uni">Unidade de saúde</label><div class="ms" id="ms-uni"></div></div>
       <div class="f m"><label id="lb-ger">GERES</label><div class="ms" id="ms-ger"></div></div>
       <div class="f m"><label id="lb-tip">Tipo de entrega</label><div class="ms" id="ms-tip"></div></div>
@@ -645,6 +676,18 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
           title="Várias palavras somam (todas precisam aparecer). Aspas para expressão exata. Sinal de menos para excluir. Prefixos: unidade: geres: tipo: setor: status: municipio: classificacao: perfil: desc:"></div>
       <button class="btn-limpar" id="b-limpar">Limpar</button>
     </div>
+
+    <div class="card filtros" id="card-filtros-repac" hidden>
+      <div class="f u"><label id="lb-runi">Unidade de saúde</label><div class="ms" id="ms-runi"></div></div>
+      <div class="f m"><label id="lb-rmot">Motivo declarado</label><div class="ms" id="ms-rmot"></div></div>
+      <div class="f m"><label id="lb-rcon">Contratada</label><div class="ms" id="ms-rcon"></div></div>
+      <div class="f m"><label id="lb-rmov">Efeito no prazo</label><div class="ms" id="ms-rmov"></div></div>
+      <div class="f b"><label for="fr-bus">Buscar</label>
+        <input id="fr-bus" type="search" autocomplete="off" spellcheck="false"
+          title="Várias palavras somam (todas precisam aparecer). Aspas para expressão exata. Sinal de menos para excluir."></div>
+      <button class="btn-limpar" id="br-limpar">Limpar</button>
+    </div>
+    <div class="card" id="rep-aviso" hidden style="padding:26px 22px;margin-bottom:14px;font-size:13.5px;line-height:1.65"></div>
 
     <section id="painel-geral" role="tabpanel" aria-labelledby="aba-geral" tabindex="0" data-painel="geral">
       <div class="kpis" id="kpis"></div>
@@ -882,6 +925,108 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
       </div>
     </section>
 
+
+    <!-- ======================= CONTROLE DE REPACTUAÇÕES ======================= -->
+    <section id="painel-rgeral" role="tabpanel" aria-labelledby="aba-rgeral" tabindex="0" data-painel="rgeral" hidden>
+      <div class="kpis" id="rep-kpis"></div>
+      <div class="grade">
+        <div class="card g5">
+          <div class="card-h"><div class="card-t">Efeito no prazo de entrega</div>
+            <div class="card-s" id="rep-sub-pizza">—</div></div>
+          <div class="pizza-wrap">
+            <div class="pizza-svg" id="rep-pizza"></div>
+            <div class="pizza-leg" id="rep-leg-pizza"></div>
+          </div>
+        </div>
+        <div class="card g7">
+          <div class="card-h"><div class="card-t">De quanto foi o deslocamento</div>
+            <div class="card-s" id="rep-sub-faixas">—</div></div>
+          <div class="plot" id="rep-faixas"></div>
+        </div>
+        <div class="card g6">
+          <div class="card-h"><div class="card-t">Motivos declarados</div>
+            <div class="card-s" id="rep-sub-motivos">—</div></div>
+          <div class="plot" id="rep-motivos"></div>
+          <div class="leg" id="rep-leg-motivos"></div>
+        </div>
+        <div class="card g6">
+          <div class="card-h"><div class="card-t">Maiores adiamentos</div>
+            <div class="card-s" id="rep-sub-top">—</div></div>
+          <div class="plot" id="rep-top"></div>
+        </div>
+        <div class="card g12">
+          <div class="card-h"><div class="card-t">Onde estão hoje as intervenções repactuadas</div>
+            <div class="card-s" id="rep-sub-hoje">—</div></div>
+          <div class="plot" id="rep-hoje" style="padding-bottom:2px"></div>
+          <div class="leg" id="rep-leg-hoje"></div>
+        </div>
+      </div>
+      <div class="card" id="rep-qualidade" hidden></div>
+    </section>
+
+    <section id="painel-rmotivos" role="tabpanel" aria-labelledby="aba-rmotivos" tabindex="0" data-painel="rmotivos" hidden>
+      <div class="grade">
+        <div class="card g6">
+          <div class="card-h"><div class="card-t">Motivo por quantidade</div>
+            <div class="card-s" id="rm-sub-qtd">—</div></div>
+          <div class="plot" id="rm-qtd"></div>
+        </div>
+        <div class="card g6">
+          <div class="card-h"><div class="card-t">Motivo por dias adiados</div>
+            <div class="card-s" id="rm-sub-dias">—</div></div>
+          <div class="plot" id="rm-dias"></div>
+        </div>
+        <div class="card g6">
+          <div class="card-h"><div class="card-t">Contratada</div>
+            <div class="card-s" id="rm-sub-con">—</div></div>
+          <div class="plot" id="rm-con"></div>
+          <div class="leg"><span class="it"><i class="sw" style="background:var(--c-prazo)"></i>Repactuações</span>
+            <span class="it"><i class="sw" style="background:var(--c-atraso)"></i>Das quais adiaram a entrega</span></div>
+        </div>
+        <div class="card g6">
+          <div class="card-h"><div class="card-t">Tipo de entrega</div>
+            <div class="card-s" id="rm-sub-tipo">—</div></div>
+          <div class="plot" id="rm-tipo"></div>
+          <div class="leg"><span class="it"><i class="sw" style="background:var(--c-prazo)"></i>Repactuações</span>
+            <span class="it"><i class="sw" style="background:var(--c-atraso)"></i>Das quais adiaram a entrega</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-t">Motivo por unidade de saúde</div>
+          <div class="card-s" id="rm-sub-matriz">—</div></div>
+        <div class="tabela-wrap"><table class="matriz" id="tab-rmatriz"><thead><tr></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="painel-runidades" role="tabpanel" aria-labelledby="aba-runidades" tabindex="0" data-painel="runidades" hidden>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-h"><div class="card-t">Repactuações por unidade de saúde</div>
+          <div class="card-s" id="ru-sub-graf">—</div></div>
+        <div class="plot" id="ru-graf"></div>
+        <div class="leg"><span class="it"><i class="sw" style="background:var(--c-prazo)"></i>Repactuações registradas</span>
+          <span class="it"><i class="sw" style="background:var(--c-atraso)"></i>Das quais adiaram a entrega</span></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-t">Quadro por unidade</div>
+          <div class="card-s" id="ru-sub-tab">Clique numa linha para abrir os registros dessa unidade</div></div>
+        <div class="tabela-wrap"><table id="tab-runi"><thead><tr></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="painel-rregistros" role="tabpanel" aria-labelledby="aba-rregistros" tabindex="0" data-painel="rregistros" hidden>
+      <div class="card">
+        <div class="card-h" style="display:flex;flex-direction:row;gap:14px;align-items:center;flex-wrap:wrap">
+          <div style="min-width:190px">
+            <div class="card-t">Registros de repactuação</div>
+            <div class="card-s" id="rr-sub">—</div>
+          </div>
+          <button class="bs" id="b-csv-rep" style="margin-left:auto;padding:7px 14px">↓ CSV</button>
+        </div>
+        <div class="tabela-wrap"><table id="tab-rep"><thead><tr></tr></thead><tbody></tbody></table></div>
+        <div class="nota-rep" id="rr-nota"></div>
+      </div>
+    </section>
+
     <section id="painel-erros" role="tabpanel" aria-labelledby="aba-erros" tabindex="0" data-painel="erros" hidden>
       <div class="card">
         <div class="card-h" style="display:flex;flex-direction:row;gap:14px;align-items:flex-end;flex-wrap:wrap">
@@ -996,6 +1141,11 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
       <input type="text" id="i-url" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/…">
       <p style="margin:6px 0 0;font-size:12px;color:var(--muted)">Cole o link inteiro, com o
          <code>#gid=…</code> no fim — é ele que diz qual aba ler.</p>
+      <p style="margin:10px 0 0;font-size:12px;color:var(--muted)">O <b>Controle de Repactuações</b>
+         lê a aba <code>HISTÓRICO DE PRAZOS</code> da mesma planilha, sozinho. Só preencha o campo
+         abaixo se essa aba estiver em outro endereço.</p>
+      <label class="cx" for="i-urlh">Endereço da aba de histórico (opcional)</label>
+      <input type="text" id="i-urlh" spellcheck="false" placeholder="deixe em branco para usar a mesma planilha">
       <div class="row">
         <div><label class="cx" for="i-int">Reler a cada (segundos)</label>
           <input type="number" id="i-int" min="10" max="3600" step="10" value="60"></div>
@@ -1036,7 +1186,7 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
 
 const LIMITE_TABELA = 2000;
 const CFG_KEY = 'ses-pe-painel-cfg-v1';
-const PADRAO = {url:'https://docs.google.com/spreadsheets/d/1DlqVaurOsfOO9-JRUV8myuEp-NlkiZra/edit?gid=625865000#gid=625865000', intervalo:60, aba:''};
+const PADRAO = {url:'https://docs.google.com/spreadsheets/d/1DlqVaurOsfOO9-JRUV8myuEp-NlkiZra/edit?gid=625865000#gid=625865000', intervalo:60, aba:'', urlHist:''};
 const cfg = Object.assign({}, PADRAO, lerCfg());
 const SEM_ORIGEM = location.protocol === 'file:';
 function lerCfg(){ try{ return JSON.parse(localStorage.getItem(CFG_KEY) || '{}') || {}; }catch(e){ return {}; } }
@@ -1169,30 +1319,39 @@ async function lerXLSX(buf){
             || abas.find(a => norm(a.nome).includes('monitoramento')
                  && !norm(a.nome).includes('copia') && !norm(a.nome).includes('backup'))
             || abas[0];
+  /* a mesma pasta traz a aba de histórico de prazos, que alimenta o painel de
+     repactuações — ela é lida junto, sem exigir um segundo endereço */
+  const hist = abas.find(a => norm(a.nome).includes('historico de prazos'))
+            || abas.find(a => norm(a.nome).includes('historico') && norm(a.nome).includes('prazo'));
   const doc = xml(alvo.caminho);
   if(!doc) throw new Error('não consegui abrir a aba "' + alvo.nome + '".');
-  const grade = [];
-  for(const row of doc.getElementsByTagName('row')){
-    const r = (+row.getAttribute('r') || grade.length + 1) - 1;
-    const linha = grade[r] = grade[r] || [];
-    for(const c of row.getElementsByTagName('c')){
-      const col = colIndex((c.getAttribute('r') || '').replace(/\d+/g,''));
-      if(col < 0) continue;
-      const t = c.getAttribute('t');
-      let v = null;
-      if(t === 'inlineStr'){ let s=''; for(const e of c.getElementsByTagName('t')) s += e.textContent; v = s; }
-      else{
-        const ve = c.getElementsByTagName('v')[0];
-        if(ve){
-          if(t === 's') v = compart[+ve.textContent] ?? '';
-          else if(t === 'str' || t === 'e' || t === 'b') v = ve.textContent;
-          else { const n = Number(ve.textContent); v = isNaN(n) ? ve.textContent : n; }
+  const gradeDe = d => {
+    const grade = [];
+    for(const row of d.getElementsByTagName('row')){
+      const r = (+row.getAttribute('r') || grade.length + 1) - 1;
+      const linha = grade[r] = grade[r] || [];
+      for(const c of row.getElementsByTagName('c')){
+        const col = colIndex((c.getAttribute('r') || '').replace(/\d+/g,''));
+        if(col < 0) continue;
+        const t = c.getAttribute('t');
+        let v = null;
+        if(t === 'inlineStr'){ let s=''; for(const e of c.getElementsByTagName('t')) s += e.textContent; v = s; }
+        else{
+          const ve = c.getElementsByTagName('v')[0];
+          if(ve){
+            if(t === 's') v = compart[+ve.textContent] ?? '';
+            else if(t === 'str' || t === 'e' || t === 'b') v = ve.textContent;
+            else { const n = Number(ve.textContent); v = isNaN(n) ? ve.textContent : n; }
+          }
         }
+        linha[col] = v;
       }
-      linha[col] = v;
     }
-  }
-  return {grade, aba: alvo.nome};
+    return grade;
+  };
+  const docH = (hist && hist.caminho !== alvo.caminho) ? xml(hist.caminho) : null;
+  return {grade: gradeDe(doc), aba: alvo.nome,
+          hist: docH ? gradeDe(docH) : null, abaHist: hist ? hist.nome : ''};
 }
 function colIndex(l){ if(!l) return -1; let n = 0; for(const ch of l) n = n*26 + (ch.charCodeAt(0) - 64); return n - 1; }
 
@@ -1237,7 +1396,10 @@ const COLS = {
   iniPrev:['inicio previsto'], fimPrev:['termino previsto'],
   iniReal:['inicio real'], fimReal:['termino real'],
   statusExec:['status de execucao'],
-  classif:['classificacao hospital','classificacao da unidade','classificacao']
+  classif:['classificacao hospital','classificacao da unidade','classificacao'],
+  /* o ID é o que costura a carteira com a aba de histórico de prazos; vem por último
+     para não roubar coluna de nenhum campo com nome mais específico */
+  id:['id']
 };
 
 let CABECALHO_PLANILHA = [], LINHA_CABECALHO = 0;
@@ -1304,7 +1466,7 @@ function montarBase(grade){
       iniRealRaw: txt(pega(l,'iniReal')), iniReal: parseData(pega(l,'iniReal')),
       fimRealRaw: txt(pega(l,'fimReal')), fimReal: parseData(pega(l,'fimReal')),
       exec: txt(pega(l,'statusExec')).toUpperCase(), classif: txt(pega(l,'classif')),
-      linha: i + 1,
+      id: txt(pega(l,'id')), linha: i + 1,
       _bruto: CABECALHO_PLANILHA.map(c => valorBruto(l[c.idx]))
     };
     r._brutoHtml = r._bruto.map((v,k) => celulaVerbatim(v, null, classeCol(k))).join('');
@@ -1489,6 +1651,66 @@ function urlLeitura(u){
   return u;
 }
 
+/* A aba de histórico não sai no endereço CSV da carteira — aquele link aponta para uma aba
+   só. Para não exigir configuração nenhuma, o painel baixa a pasta inteira em .xlsx (o mesmo
+   arquivo, todas as abas) e lê de lá apenas o histórico. Como é um arquivo pequeno e que muda
+   pouco, a releitura é espaçada: no máximo uma a cada cinco minutos, fora o ↻, que força. */
+const INTERVALO_HIST = 300000;
+function urlLivro(){
+  const proprio = String(cfg.urlHist || '').trim();
+  if(proprio) return urlLeitura(proprio);
+  const u = String(cfg.url || '').trim();
+  const m = u.match(/docs\.google\.com\/spreadsheets\/d\/(?!e\/)([\w-]{20,})/);
+  if(m) return 'https://docs.google.com/spreadsheets/d/' + m[1] + '/export?format=xlsx';
+  if(/\.xlsx(\?|$)/i.test(u)) return u;
+  if(/1drv\.ms|sharepoint\.com|onedrive\.live\.com/.test(u) && /[?&]web=1/.test(u))
+    return u.replace(/([?&])web=1/, '$1download=1');
+  return '';
+}
+async function carregarHistorico(forcar){
+  if(MODO === 'arquivo') return;                    // já veio junto com o arquivo arrastado
+  if(HIST_VOO) return;
+  if(!forcar && HIST_GRADE && Date.now() - HIST_LIDO < INTERVALO_HIST) return;
+  const alvo = urlLivro();
+  if(!alvo){
+    HIST_ERRO = 'o endereço configurado não é uma planilha do Google, então não consegui achar a ' +
+                'aba de histórico sozinho. Informe o endereço dela em ⚙.';
+    if(MODO_PAINEL === 'repac') desenhar();
+    return;
+  }
+  HIST_VOO = true;
+  const ctrl = new AbortController();
+  const semResposta = setTimeout(() => ctrl.abort(), 25000);
+  try{
+    const resp = await fetch(alvo + (alvo.includes('?') ? '&' : '?') + '_ts=' + Date.now(),
+                             {cache:'no-store', redirect:'follow', signal: ctrl.signal});
+    if(!resp.ok) throw new Error('o servidor respondeu HTTP ' + resp.status + '.');
+    const ct = (resp.headers.get('content-type') || '').toLowerCase();
+    if(ct.includes('csv') || /format=csv|output=csv|tqx=out:csv/i.test(alvo)){
+      const t = await resp.text();
+      if(/^\s*<(!doctype|html)/i.test(t))
+        throw new Error('o link devolveu uma página do Google em vez dos dados — normalmente falta liberar o compartilhamento como "qualquer pessoa com o link".');
+      HIST_GRADE = parseCSV(t);
+    }else{
+      const livro = await lerXLSX(await resp.arrayBuffer());
+      if(!livro.hist) throw new Error('a planilha não tem nenhuma aba chamada "HISTÓRICO DE PRAZOS".');
+      HIST_GRADE = livro.hist;
+    }
+    HIST_LIDO = Date.now(); HIST_ERRO = '';
+    montarRepac(); montarFiltrosRepac();
+  }catch(err){
+    HIST_ERRO = String(err && err.name === 'AbortError'
+      ? 'a aba de histórico demorou demais para responder' : (err && err.message || err));
+    if(/Failed to fetch|NetworkError|CORS|Load failed/i.test(HIST_ERRO))
+      HIST_ERRO = SEM_ORIGEM
+        ? 'este arquivo foi aberto direto do disco, e nesse modo o navegador não permite ler endereços externos.'
+        : 'o navegador bloqueou a leitura da planilha completa — ela precisa estar compartilhada como "qualquer pessoa com o link".';
+  }finally{
+    clearTimeout(semResposta); HIST_VOO = false;
+    if(MODO_PAINEL === 'repac') desenhar();
+  }
+}
+
 let EM_VOO = false;
 async function carregarDeURL(silencioso){
   const alvo = urlLeitura(cfg.url);
@@ -1515,6 +1737,7 @@ async function carregarDeURL(silencioso){
     }
     if(g !== GERACAO) return;
     aplicar(montarBase(grade), 'Planilha online');
+    carregarHistorico();
   }catch(err){
     if(g !== GERACAO) return;
     const bruto = String(err && err.name === 'AbortError' ? 'o link demorou demais para responder' : (err && err.message || err));
@@ -1570,9 +1793,18 @@ async function carregarArquivo(file){
   pararTimer();
   estado('wait','Lendo ' + file.name + '…');
   try{
-    const grade = /\.(csv|txt)$/i.test(file.name)
-      ? parseCSV(await file.text())
-      : (await lerXLSX(await file.arrayBuffer())).grade;
+    let grade;
+    if(/\.(csv|txt)$/i.test(file.name)){
+      grade = parseCSV(await file.text());
+      HIST_GRADE = null;
+      HIST_ERRO = 'um arquivo .csv traz uma aba só. Para ver as repactuações, arraste o .xlsx completo ou conecte o painel ao link da planilha.';
+    }else{
+      const livro = await lerXLSX(await file.arrayBuffer());
+      grade = livro.grade;
+      HIST_GRADE = livro.hist;
+      HIST_ERRO = livro.hist ? '' : 'este arquivo não tem nenhuma aba chamada "HISTÓRICO DE PRAZOS".';
+      HIST_LIDO = Date.now();
+    }
     if(g !== GERACAO) return;
     aplicar(montarBase(grade), 'Arquivo local · ' + file.name);
   }catch(err){
@@ -1587,7 +1819,9 @@ function aplicar(base, origem){
   $('#erro-barra').classList.remove('on');
   $('#vazio').hidden = true; $('#painel').hidden = false;
   mapearSetores();
+  montarRepac();
   montarFiltros();
+  montarFiltrosRepac();
   montarVocabulario();
   marcarChips();
   desenhar();
@@ -1770,7 +2004,10 @@ function realce(txt, termos){
 /* ------------------------------------------------------------- filtros */
 /* Todos os filtros aceitam várias opções ao mesmo tempo. Cada um guarda um array;
    array vazio significa "todas". */
-const F = {uni:[], ger:[], tip:[], cla:[], sit:[], bus:''};
+/* os campos com "r" no começo são do Controle de Repactuações: moram aqui para que os
+   seletores múltiplos, que leem F[campo], sirvam aos dois painéis sem duplicar código */
+const F = {uni:[], ger:[], tip:[], cla:[], sit:[], bus:'',
+           runi:[], rmot:[], rcon:[], rmov:[], rbus:''};
 let SO_INICIO = false, MES_SEL = null;
 
 const MULTI = [
@@ -1834,7 +2071,7 @@ function montaMulti(m){
   });
 }
 function abrirMulti(m, abrir){
-  MULTI.forEach(x => {                       // um popup por vez
+  MULTI.concat(typeof FR_MULTI === 'undefined' ? [] : FR_MULTI).forEach(x => {   // um popup por vez
     const e = $('#' + x.id);
     const p = e && e.querySelector('.ms-pop'), b = e && e.querySelector('.ms-btn');
     if(!p || !b) return;                     // filtro ainda não montado (antes de carregar a planilha)
@@ -2149,6 +2386,8 @@ let ABA_ANTES_DIAG = 'geral';
 const abaDeDiagnostico = a => a === 'erros' || a === 'semdata' || a === 'semarea';
 function trocarAba(nome, focar){
   if(!abaDeDiagnostico(nome)) ABA_ANTES_DIAG = nome;
+  if(abaRepac(nome)) ABA_REPAC = nome;
+  else if(!abaDeDiagnostico(nome)) ABA_ENTREGAS = nome;
   ABA = nome;
   $$('.aba').forEach(b => {
     const sel = b.dataset.aba === nome;
@@ -2156,6 +2395,7 @@ function trocarAba(nome, focar){
     b.tabIndex = sel ? 0 : -1;
     if(sel && focar) b.focus();
   });
+  if(!abaRepac(nome) && MODO_PAINEL === 'repac') trocarPainel('entregas');
   $$('section[data-painel]').forEach(s => s.hidden = s.dataset.painel !== nome);
   const diag = nome === 'erros' || nome === 'semdata' || nome === 'semarea';
   const bd = $('#b-diag');
@@ -2174,7 +2414,8 @@ function comRolagem(fn){
 const NOME_ABA = {geral:'Visão geral', vencimentos:'Vencimentos', cronograma:'Cronograma',
                   execucao:'Execução', carteira:'Distribuição',
                   unidades:'Unidades', pavimentos:'Pavimentos', mapa:'Mapa', consulta:'Consulta',
-                  erros:'Erros', semdata:'Sem data', semarea:'Sem área'};
+                  erros:'Erros', semdata:'Sem data', semarea:'Sem área',
+                  rgeral:'Visão geral', rmotivos:'Motivos', runidades:'Unidades', rregistros:'Registros'};
 function resumoImpressao(n){
   const f = [];
   if(ESCOPO() && LINHAS.length) f.push('Unidade: ' + nomeCurto(LINHAS[0].unidade) + ' (' + ESCOPO() + ')');
@@ -2191,6 +2432,18 @@ function resumoImpressao(n){
 }
 function desenhar(){
   if(!LINHAS.length) return;
+  if(MODO_PAINEL === 'repac' && abaRepac(ABA)){
+    atualizarDiagBadges();
+    if(pintarAvisoRepac()) return;
+    const dr = repFiltradas();
+    resumoRepac(dr.length);
+    return comRolagem(() => {
+      if(ABA === 'rgeral')     return abaRepGeral(dr);
+      if(ABA === 'rmotivos')   return abaRepMotivos(dr);
+      if(ABA === 'runidades')  return abaRepUnidades(dr);
+      if(ABA === 'rregistros') return abaRepRegistros(dr);
+    });
+  }
   const d = filtradas();
   resumoImpressao(d.length);
   atualizarDiagBadges();
@@ -3320,6 +3573,587 @@ function abaPavimentos(d){
     '</tbody></table></div>';
 }
 
+/* =========================================================================
+   CONTROLE DE REPACTUAÇÕES — aba "HISTÓRICO DE PRAZOS" da planilha
+   -------------------------------------------------------------------------
+   Cada linha do histórico é um prazo que a intervenção TINHA e deixou de ter;
+   não é uma entrega nova. Ordenando as linhas de um mesmo ID pelo término
+   anterior monta-se a corrente de versões do cronograma:
+
+        versão 1  →  versão 2  →  …  →  prazo que está hoje na carteira
+
+   O deslocamento de cada repactuação é a diferença entre o término da versão
+   SEGUINTE e o desta versão. Medir direto da primeira para a última contaria o
+   mesmo dia duas vezes numa intervenção repactuada mais de uma vez.
+
+   Nada é inventado: unidade, área, situação e prazo atual vêm da linha
+   correspondente da carteira (o encontro é pela coluna ID); prazo anterior,
+   motivo e contratada vêm do próprio histórico. Registro cujo ID não existe na
+   carteira fica fora das contas e é declarado na tela.
+   ========================================================================= */
+const COLS_REP = {
+  unidade:['unidade de saude','unidade'], descricao:['descricao da entrega','descricao'],
+  tipo:['tipo de entrega','tipo'], setor:['pavimento/setor','pavimento','setor'],
+  contratada:['contratada','empresa','executora'],
+  iniAnt:['inicio previsto anterior','inicio anterior'],
+  fimAnt:['termino previsto anterior','termino anterior'],
+  motivo:['motivo','justificativa'],
+  id:['id']
+};
+const SEM_MOTIVO = 'MOTIVO NÃO INFORMADO';
+const SEM_CONTRATADA = 'CONTRATADA NÃO INFORMADA';
+/* o que a repactuação fez com a data de entrega — é isto que o painel mede */
+const MOV = {
+  adiada:      {rot:'Adiada',                   cor:'var(--c-atraso)',    sel:'b-crit'},
+  soIni:       {rot:'Só o início mudou',        cor:'var(--c-prazo)',     sel:'b-info'},
+  antecipada:  {rot:'Antecipada',               cor:'var(--c-concluido)', sel:'b-good'},
+  semMudanca:  {rot:'Sem mudança de data',      cor:'var(--c-planejar)',  sel:'b-mut'},
+  semAtual:    {rot:'Voltou ao planejamento',   cor:'var(--c-projeto)',   sel:'b-mut'},
+  semAnterior: {rot:'Prazo anterior em branco', cor:'var(--c-fiscal)',    sel:'b-warn'}
+};
+const ORDEM_MOV = ['adiada','soIni','antecipada','semMudanca','semAtual','semAnterior'];
+const CHAVE_MOV = {};
+ORDEM_MOV.forEach(k => CHAVE_MOV[MOV[k].rot] = k);
+/* rampa do menor para o maior deslocamento, a mesma usada nas faixas de atraso */
+const FAIXAS_REP = [
+  {rot:'Antecipado',       cor:'var(--c-concluido)',  teste:x => x.mov === 'antecipada'},
+  {rot:'Mesmo término',    cor:'var(--c-prazo)',      teste:x => x.mov === 'soIni' || x.mov === 'semMudanca'},
+  {rot:'Até 15 dias',      cor:'var(--c-critico)',    teste:x => x.mov === 'adiada' && x.dFim <= 15},
+  {rot:'16 a 30 dias',     cor:'var(--c-area-atraso)',teste:x => x.mov === 'adiada' && x.dFim > 15 && x.dFim <= 30},
+  {rot:'31 a 90 dias',     cor:'var(--c-atraso)',     teste:x => x.mov === 'adiada' && x.dFim > 30 && x.dFim <= 90},
+  {rot:'Mais de 90 dias',  cor:'var(--c-atraso-2)',   teste:x => x.mov === 'adiada' && x.dFim > 90},
+  {rot:'Sem comparação',   cor:'var(--c-planejar)',   teste:x => x.mov === 'semAtual' || x.mov === 'semAnterior'}
+];
+const PALETA_MOTIVO = ['var(--c-atraso)','var(--c-prazo)','var(--c-fiscal)','var(--c-projeto)',
+                       'var(--c-iniciar)','var(--c-critico)','var(--c-atraso-2)','var(--c-concluido)'];
+
+let REPAC = [], REPAC_FORA = 0, COR_MOTIVO = {};
+let HIST_GRADE = null, HIST_ERRO = '', HIST_LIDO = 0, HIST_VOO = false;
+let MODO_PAINEL = 'entregas', ABA_ENTREGAS = 'geral', ABA_REPAC = 'rgeral';
+let ordemRep = {col:'dFim', dir:-1}, ordemRepUni = {col:'n', dir:-1};
+const NOME_ENTREGAS = 'Painel de Monitoramento das Entregas';
+const NOME_REPAC = 'Controle de Repactuações';
+const abaRepac = a => a === 'rgeral' || a === 'rmotivos' || a === 'runidades' || a === 'rregistros';
+
+/* mesmo casamento de colunas usado na carteira: nome exato, depois começo, depois pedaço */
+function acharColunas(cab, mapa){
+  const usadas = new Set(), idx = {};
+  for(const [chave, nomes] of Object.entries(mapa)){
+    let j = -1;
+    for(const teste of [ (c,n) => c === n, (c,n) => c.startsWith(n), (c,n) => c.includes(n) ]){
+      for(const n of nomes){ j = cab.findIndex((c,k) => !usadas.has(k) && teste(c, n)); if(j >= 0) break; }
+      if(j >= 0) break;
+    }
+    if(j >= 0) usadas.add(j);
+    idx[chave] = j;
+  }
+  return idx;
+}
+
+function montarRepac(){
+  REPAC = []; REPAC_FORA = 0; COR_MOTIVO = {};
+  if(!HIST_GRADE || !LINHAS.length) return;
+  const grade = HIST_GRADE;
+  let hi = -1;
+  for(let i = 0; i < Math.min(grade.length, 40); i++){
+    const l = (grade[i] || []).map(norm);
+    if(l.some(c => c.includes('termino previsto anterior')) ||
+       (l.some(c => c === 'id') && l.some(c => c.includes('motivo')))){ hi = i; break; }
+  }
+  if(hi < 0){
+    HIST_ERRO = 'a aba de histórico foi lida, mas não achei o cabeçalho — ela precisa ter uma coluna "ID" e outra "Término Previsto Anterior".';
+    return;
+  }
+  const idx = acharColunas((grade[hi] || []).map(norm), COLS_REP);
+  if(idx.id < 0 || idx.fimAnt < 0){
+    HIST_ERRO = 'a aba de histórico não tem as colunas obrigatórias "ID" e "Término Previsto Anterior".';
+    return;
+  }
+  const porId = new Map();
+  LINHAS.forEach(r => { const k = norm(r.id); if(k && !porId.has(k)) porId.set(k, r); });
+
+  const txt = v => String(v ?? '').trim();
+  const pega = (l,k) => idx[k] >= 0 ? l[idx[k]] : null;
+  const cru = [];
+  for(let i = hi + 1; i < grade.length; i++){
+    const l = grade[i] || [];
+    const id = txt(pega(l,'id'));
+    if(!id) continue;
+    const alvo = porId.get(norm(id));
+    if(!alvo){
+      /* numa conta de unidade, o histórico das outras não pode nem ser contado */
+      if(!ESCOPO()) REPAC_FORA++;
+      continue;
+    }
+    cru.push({
+      id, entrega: alvo, linha: i + 1, unidade: alvo.unidade,
+      descricao: alvo.descricao || txt(pega(l,'descricao')),
+      setor: alvo.setor || txt(pega(l,'setor')),
+      tipo: alvo.tipo || txt(pega(l,'tipo')).toUpperCase(),
+      contratada: txt(pega(l,'contratada')).toUpperCase() || SEM_CONTRATADA,
+      motivo: txt(pega(l,'motivo')).toUpperCase() || SEM_MOTIVO,
+      iniAnt: parseData(pega(l,'iniAnt')), fimAnt: parseData(pega(l,'fimAnt'))
+    });
+  }
+  const grupos = new Map();
+  cru.forEach(x => { const a = grupos.get(x.id) || []; a.push(x); grupos.set(x.id, a); });
+  const INF = new Date(2999,0,1);
+  grupos.forEach(lista => {
+    lista.sort((a,b) => (a.fimAnt || INF) - (b.fimAnt || INF) ||
+                        (a.iniAnt || INF) - (b.iniAnt || INF) || a.linha - b.linha);
+    lista.forEach((x,k) => {
+      const prox = lista[k+1];
+      x.iniNovo = prox ? prox.iniAnt : x.entrega.iniPrev;
+      x.fimNovo = prox ? prox.fimAnt : x.entrega.fimPrev;
+      x.ordem = k + 1; x.versoes = lista.length;
+      x.dFim = (x.fimAnt && x.fimNovo) ? dias(x.fimNovo, x.fimAnt) : null;
+      x.dIni = (x.iniAnt && x.iniNovo) ? dias(x.iniNovo, x.iniAnt) : null;
+      x.mov = !x.fimAnt ? 'semAnterior' : !x.fimNovo ? 'semAtual'
+            : x.dFim > 0 ? 'adiada' : x.dFim < 0 ? 'antecipada'
+            : x.dIni ? 'soIni' : 'semMudanca';
+      x.adiamento = x.mov === 'adiada' ? x.dFim : 0;
+      x._idx = norm([siglaDe(x.unidade), x.unidade, x.descricao, x.setor, x.tipo, x.contratada,
+                     x.motivo, MOV[x.mov].rot, x.entrega.status, x.entrega.grupo,
+                     [x.iniAnt, x.fimAnt, x.iniNovo, x.fimNovo].filter(Boolean).map(dbr).join(' ')].join(' '));
+      x._pal = [...new Set(x._idx.split(/[^0-9a-z]+/).filter(p => p.length >= 3))];
+      REPAC.push(x);
+    });
+  });
+  REPAC.sort((a,b) => b.adiamento - a.adiamento ||
+                      nomeCurto(a.unidade).localeCompare(nomeCurto(b.unidade),'pt-BR') || a.linha - b.linha);
+  /* a cor de cada motivo é fixada pelo peso na base inteira, para os gráficos falarem
+     a mesma língua depois de qualquer filtro */
+  const cont = {};
+  REPAC.forEach(x => cont[x.motivo] = (cont[x.motivo] || 0) + 1);
+  Object.keys(cont).sort((a,b) => cont[b] - cont[a] || a.localeCompare(b,'pt-BR')).forEach((m,i) => {
+    COR_MOTIVO[m] = m === SEM_MOTIVO ? 'var(--c-planejar)' : PALETA_MOTIVO[i % PALETA_MOTIVO.length];
+  });
+  HIST_ERRO = '';
+}
+
+/* ------------------------------------------------------- filtros do painel */
+const FR_MULTI = [
+  {campo:'runi', id:'ms-runi', rot:'Todas', vazio:'Todas as unidades', sigla:true,
+   valores: b => [...new Set(b.map(x => x.unidade))].sort((a,c) => nomeCurto(a).localeCompare(nomeCurto(c),'pt-BR'))},
+  {campo:'rmot', id:'ms-rmot', rot:'Todos', vazio:'Todos os motivos',
+   valores: b => [...new Set(b.map(x => x.motivo))].sort((a,c) =>
+     (a === SEM_MOTIVO) - (c === SEM_MOTIVO) || a.localeCompare(c,'pt-BR'))},
+  {campo:'rcon', id:'ms-rcon', rot:'Todas', vazio:'Todas as contratadas',
+   valores: b => [...new Set(b.map(x => x.contratada))].sort((a,c) =>
+     (a === SEM_CONTRATADA) - (c === SEM_CONTRATADA) || a.localeCompare(c,'pt-BR'))},
+  {campo:'rmov', id:'ms-rmov', rot:'Todos', vazio:'Todos os efeitos no prazo',
+   valores: b => { const tem = new Set(b.map(x => x.mov)); return ORDEM_MOV.filter(k => tem.has(k)).map(k => MOV[k].rot); }}
+];
+function montarFiltrosRepac(){
+  FR_MULTI.forEach(m => {
+    const el = $('#' + m.id);
+    if(!el) return;
+    if(!el.querySelector('.ms-btn')) montaMulti(m);
+    m.lista = m.valores(REPAC);
+    F[m.campo] = F[m.campo].filter(v => m.lista.includes(v));
+    const box = el.closest('.f');
+    if(box) box.hidden = m.campo === 'runi' ? !!ESCOPO() : (!!ESCOPO() && m.lista.length <= 1);
+    pintarLista(m); rotuloMulti(m);
+  });
+}
+function repFiltradas(){
+  const termos = parseBusca(F.rbus);
+  const base = REPAC.filter(x =>
+    (!F.runi.length || F.runi.includes(x.unidade)) &&
+    (!F.rmot.length || F.rmot.includes(x.motivo)) &&
+    (!F.rcon.length || F.rcon.includes(x.contratada)) &&
+    (!F.rmov.length || F.rmov.includes(MOV[x.mov].rot)));
+  return termos.length ? base.filter(x => casaBusca(x, termos, false)) : base;
+}
+
+/* ------------------------------------------------------- utilidades do painel */
+const medianaDe = v => {
+  if(!v.length) return 0;
+  const a = v.slice().sort((x,y) => x - y), m = a.length >> 1;
+  return Math.round(a.length % 2 ? a[m] : (a[m-1] + a[m]) / 2);
+};
+const rotRep = x => (ESCOPO() ? '' : siglaDe(x.unidade) + ' · ') +
+                    (x.descricao || x.setor || 'entrega sem descrição');
+const dicaRep = x => (ESCOPO() ? '' : nomeCurto(x.unidade) + ' — ') +
+                     (x.descricao || x.setor || 'entrega sem descrição');
+const deltaTxt = x => x.dFim == null ? '—' : x.dFim > 0 ? '+' + fmt(x.dFim) + ' d'
+                    : x.dFim < 0 ? '−' + fmt(-x.dFim) + ' d' : '0 d';
+const classeDelta = x => x.dFim == null ? 'igual' : x.dFim > 0 ? 'mais' : x.dFim < 0 ? 'menos' : 'igual';
+const prazoTxt = (a,b) => (a ? dbr(a) : '—') + ' → ' + (b ? dbr(b) : '—');
+const prazoCel = (a,b) => '<td class="prazo-cel">' + (a ? dbr(a) : '—') +
+  '<span class="ate">→</span>' + (b ? dbr(b) : '—') + '</td>';
+/* contagem por chave, já com dias adiados e intervenções distintas */
+function contarRep(lista, chave){
+  const m = {};
+  lista.forEach(x => {
+    const k = typeof chave === 'function' ? chave(x) : x[chave];
+    const o = m[k] = m[k] || {n:0, dias:0, ad:0, ids:new Set(), maior:0};
+    o.n++; o.ids.add(x.id);
+    if(x.mov === 'adiada'){ o.dias += x.dFim; o.ad++; o.maior = Math.max(o.maior, x.dFim); }
+  });
+  return m;
+}
+const plDias = n => fmt(n) + (n === 1 ? ' dia' : ' dias');
+const plRep = n => fmt(n) + (n === 1 ? ' repactuação' : ' repactuações');
+
+/* ------------------------------------------------------- troca de painel */
+function trocarPainel(modo){
+  MODO_PAINEL = modo;
+  const rep = modo === 'repac';
+  document.body.classList.toggle('em-repac', rep);
+  $$('.pn').forEach(b => b.setAttribute('aria-selected', String(b.dataset.modo === modo)));
+  const ae = $('#abas-entregas'), ar = $('#abas-repac');
+  if(ae) ae.hidden = rep;
+  if(ar) ar.hidden = !rep;
+  const fe = $('#card-filtros'), fr = $('#card-filtros-repac');
+  if(fe) fe.hidden = rep;
+  if(fr) fr.hidden = !rep;
+  const av = $('#rep-aviso'); if(av && !rep) av.hidden = true;
+  const t = document.querySelector('.titulo-painel');
+  if(t) t.textContent = rep ? NOME_REPAC : NOME_ENTREGAS;
+  trocarAba(rep ? ABA_REPAC : ABA_ENTREGAS);
+}
+/* devolve true quando não há o que desenhar e a mensagem já ocupou a tela */
+function pintarAvisoRepac(){
+  const cx = $('#rep-aviso');
+  let msg = '';
+  if(HIST_ERRO){
+    msg = '<b>Não consegui ler a aba de histórico de prazos.</b><br>' + esc(HIST_ERRO) +
+      '<br><br>O painel de entregas continua funcionando normalmente. Para o de repactuações, ' +
+      'confira em <b>⚙</b> se a planilha está compartilhada como “qualquer pessoa com o link” — ' +
+      'ou arraste o arquivo <code>.xlsx</code> para esta tela.';
+  }else if(!HIST_GRADE){
+    msg = '<b>Lendo a aba HISTÓRICO DE PRAZOS…</b><br>Ela vem da mesma planilha da carteira e ' +
+      'é lida logo depois dela.';
+  }else if(!REPAC.length){
+    msg = ESCOPO()
+      ? '<b>Nenhuma repactuação registrada para esta unidade.</b><br>Nenhuma entrega ' +
+        'desta unidade aparece na aba HISTÓRICO DE PRAZOS da planilha — ou seja, nenhum prazo ' +
+        'foi remarcado até agora.'
+      : '<b>A aba HISTÓRICO DE PRAZOS não trouxe nenhum registro aproveitável.</b><br>' +
+        (REPAC_FORA ? plRep(REPAC_FORA) + ' têm ID que não existe na carteira e por isso ficaram de fora.'
+                    : 'Ela está vazia ou sem nenhuma linha preenchida.');
+  }
+  if(cx){ cx.hidden = !msg; cx.innerHTML = msg; }
+  ['rgeral','rmotivos','runidades','rregistros'].forEach(n => {
+    const s = document.querySelector('section[data-painel="' + n + '"]');
+    if(s) s.hidden = msg ? true : n !== ABA;
+  });
+  return !!msg;
+}
+function resumoRepac(n){
+  const f = [];
+  if(ESCOPO() && LINHAS.length) f.push('Unidade: ' + nomeCurto(LINHAS[0].unidade) + ' (' + ESCOPO() + ')');
+  if(F.runi.length) f.push('Unidade: ' + F.runi.map(nomeCurto).join(', '));
+  if(F.rmot.length) f.push('Motivo: ' + F.rmot.join(', '));
+  if(F.rcon.length) f.push('Contratada: ' + F.rcon.join(', '));
+  if(F.rmov.length) f.push('Efeito: ' + F.rmov.join(', '));
+  if(F.rbus) f.push('Busca: “' + F.rbus + '”');
+  const el = $('#resumo-impressao');
+  if(el) el.innerHTML = '<b>' + esc(NOME_REPAC + ' · ' + (NOME_ABA[ABA] || ABA)) + '</b> · ' +
+    esc(plRep(n)) + ' · posição de ' + dbr(HOJE) +
+    (f.length ? '<br>Recorte aplicado: ' + esc(f.join(' · ')) : '<br>Sem filtros aplicados');
+}
+
+/* ------------------------------------------------------- visão geral */
+function abaRepGeral(dr){
+  const total = dr.length;
+  const ids = new Set(dr.map(x => x.id));
+  const ad = dr.filter(x => x.mov === 'adiada');
+  const soma = ad.reduce((s,x) => s + x.dFim, 0);
+  const media = ad.length ? Math.round(soma / ad.length) : 0;
+  const mediana = medianaDe(ad.map(x => x.dFim));
+  const maior = ad.length ? ad.reduce((a,b) => b.dFim > a.dFim ? b : a) : null;
+  const semEfeito = dr.filter(x => x.mov === 'soIni' || x.mov === 'semMudanca').length;
+  const reinc = new Set(dr.filter(x => x.versoes > 1).map(x => x.id)).size;
+  const antec = dr.filter(x => x.mov === 'antecipada').length;
+  const carteira = LINHAS.length;
+
+  $('#rep-kpis').innerHTML = [
+    ['info','Repactuações', fmt(total),
+      total ? 'em ' + fmt(ids.size) + (ids.size === 1 ? ' intervenção' : ' intervenções') : 'nenhuma no recorte'],
+    ['info','Intervenções atingidas', fmt(ids.size) + '<u>' + pc(ids.size, carteira) + '</u>',
+      'de ' + fmt(carteira) + ' entregas monitoradas'],
+    ['crit','Dias adiados', fmt(soma),
+      ad.length ? 'somando ' + fmt(ad.length) + (ad.length === 1 ? ' adiamento' : ' adiamentos') : 'nenhum adiamento no recorte'],
+    ['warn','Adiamento médio', ad.length ? fmt(media) + ' d' : '—',
+      ad.length ? 'mediana de ' + plDias(mediana) : 'sem adiamento para calcular'],
+    ['crit','Maior adiamento', maior ? fmt(maior.dFim) + ' d' : '—',
+      maior ? dicaRep(maior) : 'nenhum prazo empurrado para a frente'],
+    ['info','Sem mexer no término', fmt(semEfeito),
+      semEfeito ? 'mudou só o início, ou nada mudou' : 'toda repactuação moveu a entrega'],
+    [reinc ? 'warn' : 'good','Repactuadas mais de uma vez', fmt(reinc),
+      reinc ? 'a mesma entrega remarcada de novo' : 'nenhuma entrega remarcada duas vezes']
+  ].map(cartao).join('');
+
+  /* 1. o que a repactuação fez com a data de entrega */
+  const segs = ORDEM_MOV.map(k => ({nome:MOV[k].rot, cor:MOV[k].cor, v: dr.filter(x => x.mov === k).length}));
+  $('#rep-sub-pizza').textContent = total
+    ? fmt(ad.length) + ' de ' + fmt(total) + ' empurraram a entrega para a frente' +
+      (antec ? ' · ' + fmt(antec) + (antec === 1 ? ' antecipou' : ' anteciparam') : '')
+    : 'Nada no recorte atual';
+  pizza($('#rep-pizza'), segs, total, 'repactuações');
+  $('#rep-leg-pizza').innerHTML = segs.filter(g => g.v).map(g =>
+    '<span class="it"><i class="sw" style="background:' + g.cor + '"></i><span>' + esc(g.nome) +
+    '</span><b>' + fmt(g.v) + '</b><span class="pc">' + pc(g.v, total) + '</span></span>').join('');
+
+  /* 2. tamanho do deslocamento */
+  const faixas = FAIXAS_REP.map(f => ({rot:f.rot, cor:f.cor, v: dr.filter(f.teste).length}));
+  $('#rep-sub-faixas').textContent = ad.length
+    ? 'Adiamento médio de ' + plDias(media) + ' · mediana de ' + plDias(mediana) +
+      ' · maior: ' + plDias(maior ? maior.dFim : 0)
+    : 'Nenhum adiamento no recorte atual';
+  barrasH($('#rep-faixas'), faixas.map(f => ({
+    rot:f.rot, v:f.v, vtxt:fmt(f.v), cor:f.cor, tip:f.rot + ' — repactuações nessa faixa'
+  })), {alvo:270, altMax:26, aria:'repactuações por tamanho do deslocamento'});
+
+  /* 3. motivos declarados */
+  const mot = contarRep(dr, 'motivo');
+  const rankMot = Object.entries(mot).sort((a,b) => b[1].n - a[1].n || a[0].localeCompare(b[0],'pt-BR'));
+  $('#rep-sub-motivos').textContent = rankMot.length
+    ? 'O que a planilha declara como causa da remarcação' + avisoCorte(Math.min(8, rankMot.length), rankMot.length, 'motivos')
+    : 'Nenhum motivo no recorte atual';
+  barrasH($('#rep-motivos'), rankMot.slice(0,8).map(([k,o]) => ({
+    rot:k, v:o.n, vtxt:fmt(o.n), cor:COR_MOTIVO[k] || 'var(--c-prazo)',
+    tip:k + ' — ' + plRep(o.n) + (o.dias ? ', ' + plDias(o.dias) + ' adiados' : '')
+  })), {alvo: Math.max(150, Math.min(300, rankMot.length*36 + 20)), altMax:30, aria:'repactuações por motivo'});
+  $('#rep-leg-motivos').innerHTML = '<span class="it">A barra conta registros — quantos dias cada motivo ' +
+    'custou está na aba <b>Motivos</b></span>';
+
+  /* 4. as entregas que mais recuaram */
+  const top = ad.slice().sort((a,b) => b.dFim - a.dFim).slice(0,8);
+  $('#rep-sub-top').textContent = top.length
+    ? 'Quantos dias cada entrega recuou' + avisoCorte(top.length, ad.length, 'adiamentos')
+    : 'Nenhuma entrega adiada no recorte atual';
+  barrasH($('#rep-top'), top.map(x => ({
+    rot:rotRep(x), v:x.dFim, vtxt:fmt(x.dFim) + ' d', cor:'var(--c-atraso)',
+    tip:dicaRep(x) + ' — de ' + dbr(x.fimAnt) + ' para ' + dbr(x.fimNovo)
+  })), {alvo: Math.max(150, Math.min(300, top.length*36 + 20)), altMax:26, aria:'maiores adiamentos'});
+
+  /* 5. adiantou de alguma coisa? onde essas entregas estão hoje */
+  const cont = GRUPOS.map(g => Object.assign({}, g,
+    {v: new Set(dr.filter(x => x.entrega.grupo === g.nome).map(x => x.id)).size}));
+  const emAtraso = cont.find(g => g.nome === 'Em atraso');
+  $('#rep-sub-hoje').textContent = ids.size
+    ? 'Situação atual das ' + fmt(ids.size) + (ids.size === 1 ? ' intervenção repactuada' : ' intervenções repactuadas') +
+      (emAtraso && emAtraso.v ? ' — ' + fmt(emAtraso.v) + ' continua' + (emAtraso.v === 1 ? '' : 'm') + ' com prazo vencido' : '')
+    : 'Nada no recorte atual';
+  barra100($('#rep-hoje'), cont, ids.size);
+  $('#rep-leg-hoje').innerHTML = cont.filter(g => g.v).map(g =>
+    '<span class="it"><i class="sw" style="background:' + g.cor + '"></i><span>' + esc(g.nome) +
+    '</span><b>' + fmt(g.v) + '</b></span>').join('');
+
+  /* 6. o que a própria aba de histórico deixa em aberto */
+  const semMot = dr.filter(x => x.motivo === SEM_MOTIVO).length;
+  const semCon = dr.filter(x => x.contratada === SEM_CONTRATADA).length;
+  const semAnt = dr.filter(x => x.mov === 'semAnterior').length;
+  const semAtu = dr.filter(x => x.mov === 'semAtual').length;
+  const nada = dr.filter(x => x.mov === 'semMudanca').length;
+  const itens = [];
+  if(semMot) itens.push([plRep(semMot) + ' sem motivo declarado', 'a coluna MOTIVO está em branco']);
+  if(semCon) itens.push([plRep(semCon) + ' sem contratada', 'a coluna CONTRATADA está em branco']);
+  if(semAnt) itens.push([plRep(semAnt) + ' sem prazo anterior', 'não dá para medir o deslocamento sem o término antigo']);
+  if(semAtu) itens.push([plRep(semAtu) + ' sem prazo atual', 'a entrega voltou para o planejamento e hoje não tem término previsto']);
+  if(nada) itens.push([plRep(nada) + ' sem mudança de data', 'o prazo registrado como anterior é igual ao de hoje']);
+  if(REPAC_FORA && !ESCOPO()) itens.push([plRep(REPAC_FORA) + ' fora da carteira',
+    'o ID dessas linhas não existe na aba de monitoramento — elas não entram em nenhuma conta deste painel']);
+  const qual = $('#rep-qualidade');
+  qual.hidden = !itens.length;
+  if(itens.length) qual.innerHTML =
+    '<div class="card-h"><div class="card-t">O que fica em aberto na aba de histórico</div>' +
+    '<div class="card-s">Nenhum destes pontos altera os números acima — são campos que a planilha ainda não preencheu</div></div>' +
+    '<div class="nota-rep" style="padding-bottom:16px">' + itens.map(([a,b]) =>
+      '<div style="margin:4px 0"><b>' + esc(a) + '</b> — ' + esc(b) + '</div>').join('') + '</div>';
+}
+
+/* ------------------------------------------------------- motivos e responsáveis */
+function abaRepMotivos(dr){
+  const mot = contarRep(dr, 'motivo');
+  const porQtd = Object.entries(mot).sort((a,b) => b[1].n - a[1].n || a[0].localeCompare(b[0],'pt-BR'));
+  const porDias = Object.entries(mot).filter(([,o]) => o.dias > 0).sort((a,b) => b[1].dias - a[1].dias);
+  const totalDias = Object.values(mot).reduce((s,o) => s + o.dias, 0);
+
+  $('#rm-sub-qtd').textContent = porQtd.length
+    ? plRep(dr.length) + ' distribuídas em ' + porQtd.length + (porQtd.length === 1 ? ' motivo' : ' motivos')
+    : 'Nada no recorte atual';
+  barrasH($('#rm-qtd'), porQtd.map(([k,o]) => ({
+    rot:k, v:o.n, vtxt:fmt(o.n), cor:COR_MOTIVO[k] || 'var(--c-prazo)',
+    tip:k + ' — ' + plRep(o.n) + ' em ' + o.ids.size + (o.ids.size === 1 ? ' intervenção' : ' intervenções')
+  })), {alvo: Math.max(150, Math.min(340, porQtd.length*40 + 20)), altMax:32, aria:'repactuações por motivo'});
+
+  $('#rm-sub-dias').textContent = totalDias
+    ? plDias(totalDias) + ' de adiamento no recorte — quanto cada motivo custou'
+    : 'Nenhum adiamento no recorte atual';
+  barrasH($('#rm-dias'), porDias.map(([k,o]) => ({
+    rot:k, v:o.dias, vtxt:fmt(o.dias) + ' d', cor:COR_MOTIVO[k] || 'var(--c-atraso)',
+    tip:k + ' — ' + plDias(o.dias) + ' em ' + fmt(o.ad) + (o.ad === 1 ? ' adiamento' : ' adiamentos') +
+        ' · maior: ' + plDias(o.maior)
+  })), {alvo: Math.max(150, Math.min(340, Math.max(1,porDias.length)*40 + 20)), altMax:32,
+        aria:'dias adiados por motivo'});
+
+  const con = contarRep(dr, 'contratada');
+  const rankCon = Object.entries(con).sort((a,b) => b[1].n - a[1].n || a[0].localeCompare(b[0],'pt-BR'));
+  $('#rm-sub-con').textContent = rankCon.length
+    ? 'Quem executa as entregas remarcadas' + avisoCorte(Math.min(10, rankCon.length), rankCon.length, 'contratadas')
+    : 'Nada no recorte atual';
+  barrasH($('#rm-con'), rankCon.slice(0,10).map(([k,o]) => ({
+    rot:k, v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)', tip:k + ' — ' + plRep(o.n),
+    v2:o.ad, v2txt:fmt(o.ad), cor2:'var(--c-atraso)',
+    tip2:k + ' — ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') + ' a entrega, ' + plDias(o.dias)
+  })), {alvo: Math.max(150, Math.min(320, rankCon.length*44 + 20)), altMax:34, aria:'repactuações por contratada'});
+
+  const tip = contarRep(dr, x => x.tipo || 'SEM TIPO');
+  const rankTip = Object.entries(tip).sort((a,b) => b[1].n - a[1].n || a[0].localeCompare(b[0],'pt-BR'));
+  $('#rm-sub-tipo').textContent = rankTip.length ? 'Que tipo de serviço mais remarca prazo' : 'Nada no recorte atual';
+  barrasH($('#rm-tipo'), rankTip.map(([k,o]) => ({
+    rot:k, v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)', tip:k + ' — ' + plRep(o.n),
+    v2:o.ad, v2txt:fmt(o.ad), cor2:'var(--c-atraso)',
+    tip2:k + ' — ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') + ' a entrega, ' + plDias(o.dias)
+  })), {alvo: Math.max(150, Math.min(320, rankTip.length*44 + 20)), altMax:34, aria:'repactuações por tipo de entrega'});
+
+  /* cruzamento motivo × unidade */
+  const unis = [...new Set(dr.map(x => x.unidade))]
+    .sort((a,b) => dr.filter(x => x.unidade === b).length - dr.filter(x => x.unidade === a).length ||
+                   nomeCurto(a).localeCompare(nomeCurto(b),'pt-BR'));
+  const motivos = porQtd.map(([k]) => k);
+  $('#rm-sub-matriz').textContent = motivos.length && unis.length
+    ? 'Quantas repactuações de cada motivo em cada unidade'
+    : 'Nada no recorte atual';
+  document.querySelector('#tab-rmatriz thead tr').innerHTML =
+    '<th scope="col">Motivo</th>' + unis.map(u =>
+      '<th scope="col" class="num" title="' + esc(u) + '">' + esc(siglaDe(u)) + '</th>').join('') +
+    '<th scope="col" class="num">Total</th><th scope="col" class="num">Dias adiados</th>';
+  const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' +
+    (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') + '>' + fmt(v) + '</td>';
+  document.querySelector('#tab-rmatriz tbody').innerHTML = motivos.map(m => {
+    const linha = dr.filter(x => x.motivo === m);
+    return '<tr><td><span class="badge" style="background:transparent;color:' +
+      (COR_MOTIVO[m] || 'var(--ink)') + ';padding-left:0;font-weight:700">' + esc(m) + '</span></td>' +
+      unis.map(u => cel(linha.filter(x => x.unidade === u).length)).join('') +
+      '<td class="num"><b>' + fmt(linha.length) + '</b></td>' +
+      cel(linha.reduce((s,x) => s + x.adiamento, 0), 'var(--t-atraso)') + '</tr>';
+  }).join('') +
+    '<tr class="total-linha"><td>TOTAL</td>' +
+    unis.map(u => '<td class="num">' + fmt(dr.filter(x => x.unidade === u).length) + '</td>').join('') +
+    '<td class="num">' + fmt(dr.length) + '</td>' +
+    '<td class="num">' + fmt(dr.reduce((s,x) => s + x.adiamento, 0)) + '</td></tr>';
+}
+
+/* ------------------------------------------------------- por unidade */
+const COL_RUNI = [
+  ['unidade','Unidade de saúde',''], ['n','Repactuações','num'], ['ids','Intervenções','num'],
+  ['ad','Adiaram a entrega','num'], ['dias','Dias adiados','num'],
+  ['media','Adiamento médio','num'], ['maior','Maior adiamento','num'], ['motivo','Motivo predominante','']
+];
+function abaRepUnidades(dr){
+  const m = contarRep(dr, 'unidade');
+  const linhas = Object.entries(m).map(([u,o]) => {
+    const daUni = dr.filter(x => x.unidade === u);
+    const cont = {};
+    daUni.forEach(x => cont[x.motivo] = (cont[x.motivo] || 0) + 1);
+    const pred = Object.entries(cont).sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0],'pt-BR'))[0];
+    return {unidade:u, n:o.n, ids:o.ids.size, ad:o.ad, dias:o.dias, maior:o.maior,
+            media: o.ad ? Math.round(o.dias / o.ad) : 0,
+            motivo: pred ? pred[0] : '—', motivoN: pred ? pred[1] : 0};
+  });
+  linhas.sort((a,b) => {
+    if(ordemRepUni.col === 'unidade')
+      return nomeCurto(a.unidade).localeCompare(nomeCurto(b.unidade),'pt-BR') * ordemRepUni.dir;
+    if(ordemRepUni.col === 'motivo')
+      return a.motivo.localeCompare(b.motivo,'pt-BR') * ordemRepUni.dir;
+    return (a[ordemRepUni.col] - b[ordemRepUni.col]) * ordemRepUni.dir || b.n - a.n;
+  });
+  const porN = linhas.slice().sort((a,b) => b.n - a.n || b.dias - a.dias);
+  $('#ru-sub-graf').textContent = linhas.length
+    ? plRep(dr.length) + ' em ' + linhas.length + (linhas.length === 1 ? ' unidade' : ' unidades') +
+      avisoCorte(Math.min(12, porN.length), porN.length, 'unidades')
+    : 'Nada no recorte atual';
+  barrasH($('#ru-graf'), porN.slice(0,12).map(o => ({
+    rot:siglaDe(o.unidade), v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)',
+    tip:nomeCurto(o.unidade) + ' — ' + plRep(o.n),
+    v2:o.ad, v2txt:fmt(o.ad), cor2:'var(--c-atraso)',
+    tip2:nomeCurto(o.unidade) + ' — ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') +
+         ' a entrega, ' + plDias(o.dias)
+  })), {alvo: Math.max(150, Math.min(360, porN.length*38 + 20)), altMax:30, aria:'repactuações por unidade'});
+
+  document.querySelector('#tab-runi thead tr').innerHTML = cabecalho(COL_RUNI, ordemRepUni);
+  const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' +
+    (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') + '>' + fmt(v) + '</td>';
+  const soma = linhas.reduce((a,o) => ({n:a.n+o.n, ids:a.ids+o.ids, ad:a.ad+o.ad, dias:a.dias+o.dias,
+    maior:Math.max(a.maior,o.maior)}), {n:0,ids:0,ad:0,dias:0,maior:0});
+  document.querySelector('#tab-runi tbody').innerHTML = linhas.map(o =>
+    '<tr class="rep-uni" data-uni="' + esc(o.unidade) + '" title="Abrir os registros de ' + esc(nomeCurto(o.unidade)) + '">' +
+    '<td class="cel-uni">' + comSigla(o.unidade) + '</td>' +
+    '<td class="num"><b>' + fmt(o.n) + '</b></td><td class="num">' + fmt(o.ids) + '</td>' +
+    cel(o.ad, 'var(--t-atraso)') + cel(o.dias, 'var(--t-atraso)') +
+    '<td class="num">' + (o.ad ? fmt(o.media) + ' d' : '—') + '</td>' +
+    '<td class="num">' + (o.maior ? fmt(o.maior) + ' d' : '—') + '</td>' +
+    '<td><span style="color:' + (COR_MOTIVO[o.motivo] || 'var(--ink-2)') + ';font-weight:600">' +
+      esc(o.motivo) + '</span>' + (o.motivoN ? ' <span style="color:var(--muted)">· ' + fmt(o.motivoN) + '</span>' : '') +
+    '</td></tr>').join('') +
+    (linhas.length ? '<tr class="total-linha"><td>TOTAL — ' + fmt(linhas.length) +
+      (linhas.length === 1 ? ' unidade' : ' unidades') + '</td>' +
+      '<td class="num">' + fmt(soma.n) + '</td><td class="num">' + fmt(soma.ids) + '</td>' +
+      '<td class="num">' + fmt(soma.ad) + '</td><td class="num">' + fmt(soma.dias) + '</td>' +
+      '<td class="num">' + (soma.ad ? fmt(Math.round(soma.dias / soma.ad)) + ' d' : '—') + '</td>' +
+      '<td class="num">' + (soma.maior ? fmt(soma.maior) + ' d' : '—') + '</td><td></td></tr>' : '');
+}
+
+/* ------------------------------------------------------- registros */
+const COL_REP = [
+  ['mov','Efeito','cen'], ['dFim','Deslocamento','num'], ['unidade','Un.','cen'],
+  ['descricao','Entrega',''], ['setor','Pavimento / setor',''],
+  ['contratada','Contratada','col-con'], ['fimAnt','Prazo anterior',''], ['fimNovo','Prazo depois',''],
+  ['motivo','Motivo','col-mot'], ['ordem','Versão','num'], ['status','Situação hoje','cen'],
+  ['linha','Linha','num']
+];
+function abaRepRegistros(dr){
+  const lista = dr.slice();
+  const txtDe = {unidade:x => nomeCurto(x.unidade), descricao:x => x.descricao || '',
+                 setor:x => x.setor || '', tipo:x => x.tipo || '', contratada:x => x.contratada,
+                 motivo:x => x.motivo, mov:x => MOV[x.mov].rot, status:x => x.entrega.status || ''};
+  const c = ordemRep.col, dir = ordemRep.dir;
+  lista.sort((a,b) => {
+    if(txtDe[c]) return txtDe[c](a).localeCompare(txtDe[c](b),'pt-BR') * dir || b.adiamento - a.adiamento;
+    if(c === 'fimAnt' || c === 'fimNovo'){
+      const va = a[c] ? a[c].getTime() : 0, vb = b[c] ? b[c].getTime() : 0;
+      return (va - vb) * dir || b.adiamento - a.adiamento;
+    }
+    if(c === 'dFim'){
+      const va = a.dFim == null ? -1e9 : a.dFim, vb = b.dFim == null ? -1e9 : b.dFim;
+      return (va - vb) * dir;
+    }
+    return ((a[c] || 0) - (b[c] || 0)) * dir || b.adiamento - a.adiamento;
+  });
+  const ad = lista.filter(x => x.mov === 'adiada');
+  $('#rr-sub').textContent = lista.length
+    ? plRep(lista.length) + ' · ' + fmt(new Set(lista.map(x => x.id)).size) + ' intervenções · ' +
+      plDias(ad.reduce((s,x) => s + x.dFim, 0)) + ' adiados'
+    : 'Nenhum registro no recorte atual';
+  document.querySelector('#tab-rep thead tr').innerHTML = cabecalho(COL_REP, ordemRep);
+  document.querySelector('#tab-rep tbody').innerHTML = lista.length ? lista.map(x =>
+    '<tr class="rep-linha">' +
+    '<td class="cen"><span class="badge ' + MOV[x.mov].sel + '">' + esc(MOV[x.mov].rot) + '</span></td>' +
+    '<td class="delta ' + classeDelta(x) + '">' + deltaTxt(x) + '</td>' +
+    '<td class="cen"><span class="sg" title="' + esc(x.unidade) + '">' + esc(siglaDe(x.unidade)) + '</span></td>' +
+    '<td class="cel-desc"><span title="' + esc((x.descricao || '') + (x.tipo ? ' · ' + x.tipo : '')) + '">' +
+      esc(x.descricao || '—') + '</span></td>' +
+    '<td>' + esc(x.setor || '—') + '</td>' +
+    '<td class="col-con"><span title="' + esc(x.contratada) + '">' + esc(x.contratada) + '</span></td>' +
+    prazoCel(x.iniAnt, x.fimAnt) + prazoCel(x.iniNovo, x.fimNovo) +
+    '<td class="col-mot"><span title="' + esc(x.motivo) + '" style="color:' +
+      (COR_MOTIVO[x.motivo] || 'var(--ink-2)') + ';font-weight:600">' + esc(x.motivo) + '</span></td>' +
+    '<td class="num">' + (x.versoes > 1 ? x.ordem + ' de ' + x.versoes : '1') + '</td>' +
+    '<td class="cen">' + selosStatus(x.entrega) + '</td>' +
+    '<td class="num">' + fmt(x.linha) + '</td></tr>').join('')
+    : '<tr><td colspan="' + COL_REP.length + '" class="sem" style="padding:26px">Nenhum registro com esse recorte.</td></tr>';
+  $('#rr-nota').innerHTML = 'Cada linha é <b>uma remarcação</b>, não uma entrega: quando o prazo de uma ' +
+    'mesma intervenção foi remarcado duas vezes, ela aparece duas vezes, e a coluna <b>Versão</b> diz qual ' +
+    'delas é. <b>Prazo anterior</b> é o que estava valendo antes; <b>Prazo depois</b> é o que passou a valer — ' +
+    'na última versão de cada intervenção, o prazo que está hoje na carteira. O <b>Deslocamento</b> compara ' +
+    'apenas os términos. <b>Linha</b> é a linha da aba HISTÓRICO DE PRAZOS, para ir direto nela na planilha.';
+}
+
 /* --- mapa --- */
 /* Coordenadas extraídas da aba "Coordenadas" da própria planilha de monitoramento
    (mesma pasta do Google Sheets — ID 1DlqVaurOsfOO9-JRUV8myuEp-NlkiZra). */
@@ -4257,17 +5091,65 @@ document.addEventListener('click', e => {
 });
 
 $$('.aba').forEach(b => b.addEventListener('click', () => trocarAba(b.dataset.aba)));
-document.querySelector('.abas').addEventListener('keydown', e => {
+$$('.pn').forEach(b => b.addEventListener('click', () => trocarPainel(b.dataset.modo)));
+$$('.abas').forEach(lista => lista.addEventListener('keydown', e => {
   const chaves = {ArrowRight:1, ArrowLeft:-1, Home:'i', End:'f'};
   if(!(e.key in chaves)) return;
   e.preventDefault();
-  const abas = $$('.aba'), i = abas.findIndex(b => b.dataset.aba === ABA);
+  const abas = [...lista.querySelectorAll('.aba')].filter(b => b.offsetParent !== null);
+  const i = abas.findIndex(b => b.dataset.aba === ABA);
+  if(!abas.length) return;
   const alvo = chaves[e.key] === 'i' ? 0 : chaves[e.key] === 'f' ? abas.length - 1
              : (i + chaves[e.key] + abas.length) % abas.length;
   trocarAba(abas[alvo].dataset.aba, true);
-});
+}));
 let deb;
 liga('#f-bus','input', e => { clearTimeout(deb); deb = setTimeout(() => { F.bus = e.target.value; MES_SEL = null; desenhar(); }, 200); });
+let debR;
+liga('#fr-bus','input', e => { clearTimeout(debR); debR = setTimeout(() => { F.rbus = e.target.value; desenhar(); }, 200); });
+liga('#br-limpar','click', () => {
+  FR_MULTI.forEach(m => { F[m.campo] = []; pintarLista(m); rotuloMulti(m); });
+  F.rbus = ''; $('#fr-bus').value = '';
+  abrirMulti(null, false); desenhar();
+});
+/* cabeçalhos ordenáveis e atalho da tabela de unidades para os registros daquela unidade */
+document.querySelector('#tab-rep thead').addEventListener('click', e => {
+  const th = e.target.closest('th'); if(!th) return;
+  ordemRep = {col:th.dataset.k, dir: ordemRep.col === th.dataset.k ? -ordemRep.dir : -1};
+  desenhar();
+});
+document.querySelector('#tab-runi thead').addEventListener('click', e => {
+  const th = e.target.closest('th'); if(!th) return;
+  ordemRepUni = {col:th.dataset.k, dir: ordemRepUni.col === th.dataset.k ? -ordemRepUni.dir : -1};
+  desenhar();
+});
+['#tab-rep','#tab-runi'].forEach(sel => {
+  const cab = document.querySelector(sel + ' thead');
+  if(cab) cab.addEventListener('keydown', e => {
+    const th = e.target.closest('th');
+    if(th && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); th.click(); }
+  });
+});
+document.querySelector('#tab-runi tbody').addEventListener('click', e => {
+  const tr = e.target.closest('tr.rep-uni'); if(!tr) return;
+  F.runi = [tr.dataset.uni];
+  const m = FR_MULTI[0];
+  if(m.lista) { pintarLista(m); rotuloMulti(m); }
+  trocarAba('rregistros');
+});
+liga('#b-csv-rep','click', () => {
+  const lista = repFiltradas();
+  if(!lista.length) return;
+  baixarCSV('repactuacoes',
+    ['Efeito no prazo','Deslocamento (dias)','Unidade de saúde','Sigla','Entrega','Pavimento/Setor','Tipo',
+     'Contratada','Início previsto anterior','Término previsto anterior','Início previsto depois',
+     'Término previsto depois','Motivo','Versão','Versões da entrega','Situação hoje na carteira',
+     'Linha no histórico','Linha na carteira','ID'],
+    lista.map(x => [MOV[x.mov].rot, x.dFim == null ? '' : x.dFim, x.unidade, siglaDe(x.unidade),
+      x.descricao, x.setor, x.tipo, x.contratada, dbr(x.iniAnt), dbr(x.fimAnt),
+      dbr(x.iniNovo), dbr(x.fimNovo), x.motivo, x.ordem, x.versoes,
+      x.entrega.status, x.linha, x.entrega.linha, x.id]));
+});
 liga('#b-limpar','click', () => {
   MULTI.forEach(m => { F[m.campo] = []; pintarLista(m); rotuloMulti(m); });
   F.bus = ''; $('#f-bus').value = ''; SO_INICIO = false; MES_SEL = null;
@@ -4366,7 +5248,7 @@ document.querySelector('#tab-uni thead').addEventListener('click', e => {
 });
 liga('#b-refresh','click', () => {
   if(MODO === 'arquivo' && ARQUIVO) carregarArquivo(ARQUIVO);        // relê o mesmo arquivo, não o link antigo
-  else if(cfg.url){ pararRetentativa(); carregarDeURL(false).then(iniciarTimer); }
+  else if(cfg.url){ pararRetentativa(); carregarDeURL(false).then(() => { iniciarTimer(); carregarHistorico(true); }); }
   else abrirCfg();
 });
 liga('#b-print','click', () => print());
@@ -4380,6 +5262,7 @@ let FOCO_ANTERIOR = null;
 function abrirCfg(){
   FOCO_ANTERIOR = document.activeElement;
   $('#i-url').value = cfg.url; $('#i-int').value = cfg.intervalo; $('#i-aba').value = cfg.aba;
+  $('#i-urlh').value = cfg.urlHist || '';
   $('#mask').classList.add('on');
   setTimeout(() => $('#i-url').focus(), 40);
 }
@@ -4389,6 +5272,8 @@ liga('#b-salvar','click', () => {
   cfg.url = $('#i-url').value.trim();
   cfg.intervalo = Math.min(3600, Math.max(10, +$('#i-int').value || 60));
   cfg.aba = $('#i-aba').value.trim();
+  cfg.urlHist = $('#i-urlh').value.trim();
+  HIST_GRADE = null; HIST_LIDO = 0; HIST_ERRO = '';
   salvarCfg(); fecharCfg();
   if(cfg.url){
     MODO = 'url'; ARQUIVO = null; pararRetentativa();
