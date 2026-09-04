@@ -279,6 +279,7 @@ tbody tr.rep-uni{cursor:pointer}
 .cel-desc,.cel-uni{overflow-wrap:anywhere}
 td.col-con,th.col-con{max-width:150px}
 td.col-mot,th.col-mot{max-width:172px}
+td.col-motr,th.col-motr{max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 td.col-con span,td.col-mot span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* células que reproduzem a planilha: preserva espaços e quebras como foram digitados */
 #tab,#erros-corpo table,#semdata-corpo table{table-layout:fixed}
@@ -939,27 +940,22 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
           </div>
         </div>
         <div class="card g7">
-          <div class="card-h"><div class="card-t">De quanto foi o deslocamento</div>
-            <div class="card-s" id="rep-sub-faixas">—</div></div>
-          <div class="plot" id="rep-faixas"></div>
-        </div>
-        <div class="card g6">
-          <div class="card-h"><div class="card-t">Motivos declarados</div>
-            <div class="card-s" id="rep-sub-motivos">—</div></div>
-          <div class="plot" id="rep-motivos"></div>
-          <div class="leg" id="rep-leg-motivos"></div>
-        </div>
-        <div class="card g6">
           <div class="card-h"><div class="card-t">Maiores adiamentos</div>
             <div class="card-s" id="rep-sub-top">—</div></div>
           <div class="plot" id="rep-top"></div>
         </div>
-        <div class="card g12">
-          <div class="card-h"><div class="card-t">Onde estão hoje as intervenções repactuadas</div>
-            <div class="card-s" id="rep-sub-hoje">—</div></div>
-          <div class="plot" id="rep-hoje" style="padding-bottom:2px"></div>
-          <div class="leg" id="rep-leg-hoje"></div>
-        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-h"><div class="card-t" id="rc-titulo">Ranking das contratadas</div>
+          <div class="card-s" id="rc-sub">—</div></div>
+        <div class="tabela-wrap"><table id="tab-rcon"><thead><tr></tr></thead><tbody></tbody></table></div>
+        <div class="leg" id="rc-leg"></div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-h"><div class="card-t">Onde estão hoje as intervenções repactuadas</div>
+          <div class="card-s" id="rep-sub-hoje">—</div></div>
+        <div class="plot" id="rep-hoje" style="padding-bottom:2px"></div>
+        <div class="leg" id="rep-leg-hoje"></div>
       </div>
       <div class="card" id="rep-qualidade" hidden></div>
     </section>
@@ -977,11 +973,9 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
           <div class="plot" id="rm-dias"></div>
         </div>
         <div class="card g6">
-          <div class="card-h"><div class="card-t">Contratada</div>
-            <div class="card-s" id="rm-sub-con">—</div></div>
-          <div class="plot" id="rm-con"></div>
-          <div class="leg"><span class="it"><i class="sw" style="background:var(--c-prazo)"></i>Repactuações</span>
-            <span class="it"><i class="sw" style="background:var(--c-atraso)"></i>Das quais adiaram a entrega</span></div>
+          <div class="card-h"><div class="card-t">De quanto foi o deslocamento</div>
+            <div class="card-s" id="rep-sub-faixas">—</div></div>
+          <div class="plot" id="rep-faixas"></div>
         </div>
         <div class="card g6">
           <div class="card-h"><div class="card-t">Tipo de entrega</div>
@@ -992,7 +986,7 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
         </div>
       </div>
       <div class="card">
-        <div class="card-h"><div class="card-t">Motivo por unidade de saúde</div>
+        <div class="card-h"><div class="card-t" id="rm-t-matriz">Motivo por unidade de saúde</div>
           <div class="card-s" id="rm-sub-matriz">—</div></div>
         <div class="tabela-wrap"><table class="matriz" id="tab-rmatriz"><thead><tr></tr></thead><tbody></tbody></table></div>
       </div>
@@ -3031,7 +3025,9 @@ function ordenar(linhas, ord){
   });
 }
 function cabecalho(cols, ord){
-  return cols.map(([k,rot,cls]) =>
+  return cols.map(([k,rot,cls]) => k === 'pos'
+    ? '<th scope="col" class="' + cls + '">' + esc(rot) + '</th>'
+    :
     '<th scope="col" role="columnheader" tabindex="0" data-k="' + k + '" class="' + cls + '" aria-sort="' +
     (ord.col === k ? (ord.dir > 0 ? 'ascending' : 'descending') : 'none') + '">' + esc(rot) +
     '<span class="ar" aria-hidden="true">' + (ord.col === k ? (ord.dir > 0 ? '▲' : '▼') : '⇅') + '</span></th>').join('');
@@ -3869,68 +3865,55 @@ function abaRepGeral(dr){
   const antec = dr.filter(x => x.mov === 'antecipada').length;
   const carteira = LINHAS.length;
 
+  /* a contratada que mais custa prazo entra como cartão: é a primeira pergunta que se faz
+     diante de uma remarcação, e vem detalhada logo abaixo no ranking */
+  const rankCon = rankContratadas(dr);
+  const pior = rankCon.slice().sort((a,b) => b.dias - a.dias || b.n - a.n)[0];
   $('#rep-kpis').innerHTML = [
     ['info','Repactuações', fmt(total),
-      total ? 'em ' + fmt(ids.size) + (ids.size === 1 ? ' intervenção' : ' intervenções') : 'nenhuma no recorte'],
-    ['info','Intervenções atingidas', fmt(ids.size) + '<u>' + pc(ids.size, carteira) + '</u>',
-      'de ' + fmt(carteira) + ' entregas monitoradas'],
+      total ? 'em ' + fmt(ids.size) + (ids.size === 1 ? ' intervenção' : ' intervenções') +
+              ' · ' + pc(ids.size, carteira) + ' da carteira'
+            : 'nenhuma no recorte'],
     ['crit','Dias adiados', fmt(soma),
       ad.length ? 'somando ' + fmt(ad.length) + (ad.length === 1 ? ' adiamento' : ' adiamentos') : 'nenhum adiamento no recorte'],
     ['warn','Adiamento médio', ad.length ? fmt(media) + ' d' : '—',
       ad.length ? 'mediana de ' + plDias(mediana) : 'sem adiamento para calcular'],
     ['crit','Maior adiamento', maior ? fmt(maior.dFim) + ' d' : '—',
       maior ? dicaRep(maior) : 'nenhum prazo empurrado para a frente'],
-    ['info','Sem mexer no término', fmt(semEfeito),
-      semEfeito ? 'mudou só o início, ou nada mudou' : 'toda repactuação moveu a entrega'],
-    [reinc ? 'warn' : 'good','Repactuadas mais de uma vez', fmt(reinc),
-      reinc ? 'a mesma entrega remarcada de novo' : 'nenhuma entrega remarcada duas vezes']
+    ['crit','Contratada que mais adia', pior && pior.dias ? fmt(pior.dias) + ' d' : '—',
+      pior && pior.dias ? pior.nome + ' · ' + fmt(pior.ad) + (pior.ad === 1 ? ' adiamento' : ' adiamentos')
+                        : 'nenhuma adiou entrega no recorte'],
+    [reinc ? 'warn' : 'info', reinc ? 'Remarcadas mais de uma vez' : 'Sem mexer no término',
+      fmt(reinc ? reinc : semEfeito),
+      reinc ? 'a mesma entrega remarcada de novo' : 'mudou só o início, ou nada mudou']
   ].map(cartao).join('');
 
   /* 1. o que a repactuação fez com a data de entrega */
   const segs = ORDEM_MOV.map(k => ({nome:MOV[k].rot, cor:MOV[k].cor, v: dr.filter(x => x.mov === k).length}));
   $('#rep-sub-pizza').textContent = total
     ? fmt(ad.length) + ' de ' + fmt(total) + ' empurraram a entrega para a frente' +
-      (antec ? ' · ' + fmt(antec) + (antec === 1 ? ' antecipou' : ' anteciparam') : '')
+      (antec ? ' · ' + fmt(antec) + (antec === 1 ? ' antecipou' : ' anteciparam') : '') +
+      (semEfeito ? ' · ' + fmt(semEfeito) + ' sem mexer no término' : '')
     : 'Nada no recorte atual';
   pizza($('#rep-pizza'), segs, total, 'repactuações');
   $('#rep-leg-pizza').innerHTML = segs.filter(g => g.v).map(g =>
     '<span class="it"><i class="sw" style="background:' + g.cor + '"></i><span>' + esc(g.nome) +
     '</span><b>' + fmt(g.v) + '</b><span class="pc">' + pc(g.v, total) + '</span></span>').join('');
 
-  /* 2. tamanho do deslocamento */
-  const faixas = FAIXAS_REP.map(f => ({rot:f.rot, cor:f.cor, v: dr.filter(f.teste).length}));
-  $('#rep-sub-faixas').textContent = ad.length
-    ? 'Adiamento médio de ' + plDias(media) + ' · mediana de ' + plDias(mediana) +
-      ' · maior: ' + plDias(maior ? maior.dFim : 0)
-    : 'Nenhum adiamento no recorte atual';
-  barrasH($('#rep-faixas'), faixas.map(f => ({
-    rot:f.rot, v:f.v, vtxt:fmt(f.v), cor:f.cor, tip:f.rot + ' — repactuações nessa faixa'
-  })), {alvo:270, altMax:26, aria:'repactuações por tamanho do deslocamento'});
-
-  /* 3. motivos declarados */
-  const mot = contarRep(dr, 'motivo');
-  const rankMot = Object.entries(mot).sort((a,b) => b[1].n - a[1].n || a[0].localeCompare(b[0],'pt-BR'));
-  $('#rep-sub-motivos').textContent = rankMot.length
-    ? 'O que a planilha declara como causa da remarcação' + avisoCorte(Math.min(8, rankMot.length), rankMot.length, 'motivos')
-    : 'Nenhum motivo no recorte atual';
-  barrasH($('#rep-motivos'), rankMot.slice(0,8).map(([k,o]) => ({
-    rot:k, v:o.n, vtxt:fmt(o.n), cor:COR_MOTIVO[k] || 'var(--c-prazo)',
-    tip:k + ' — ' + plRep(o.n) + (o.dias ? ', ' + plDias(o.dias) + ' adiados' : '')
-  })), {alvo: Math.max(150, Math.min(300, rankMot.length*36 + 20)), altMax:30, aria:'repactuações por motivo'});
-  $('#rep-leg-motivos').innerHTML = '<span class="it">A barra conta registros — quantos dias cada motivo ' +
-    'custou está na aba <b>Motivos</b></span>';
-
-  /* 4. as entregas que mais recuaram */
-  const top = ad.slice().sort((a,b) => b.dFim - a.dFim).slice(0,8);
+  /* 2. as entregas que mais recuaram */
+  const top = ad.slice().sort((a,b) => b.dFim - a.dFim).slice(0,9);
   $('#rep-sub-top').textContent = top.length
     ? 'Quantos dias cada entrega recuou' + avisoCorte(top.length, ad.length, 'adiamentos')
     : 'Nenhuma entrega adiada no recorte atual';
   barrasH($('#rep-top'), top.map(x => ({
     rot:rotRep(x), v:x.dFim, vtxt:fmt(x.dFim) + ' d', cor:'var(--c-atraso)',
     tip:dicaRep(x) + ' — de ' + dbr(x.fimAnt) + ' para ' + dbr(x.fimNovo)
-  })), {alvo: Math.max(150, Math.min(300, top.length*36 + 20)), altMax:26, aria:'maiores adiamentos'});
+  })), {alvo: Math.max(150, Math.min(330, top.length*34 + 20)), altMax:26, aria:'maiores adiamentos'});
 
-  /* 5. adiantou de alguma coisa? onde essas entregas estão hoje */
+  /* 3. ranking das contratadas */
+  pintarRankingContratadas(rankCon, dr);
+
+  /* 4. adiantou de alguma coisa? onde essas entregas estão hoje */
   const cont = GRUPOS.map(g => Object.assign({}, g,
     {v: new Set(dr.filter(x => x.entrega.grupo === g.nome).map(x => x.id)).size}));
   const emAtraso = cont.find(g => g.nome === 'Em atraso');
@@ -3966,6 +3949,76 @@ function abaRepGeral(dr){
       '<div style="margin:4px 0"><b>' + esc(a) + '</b> — ' + esc(b) + '</div>').join('') + '</div>';
 }
 
+/* ------------------------------------------------------- ranking das contratadas
+   A pergunta que vem logo depois de "quanto atrasou" é "com quem". A tabela responde
+   as duas metades: quem mais remarca (quantidade) e quem mais custa prazo (dias).
+   Numa conta de unidade ela mostra só as empresas que trabalham naquele hospital. */
+let ordemRepCon = {col:'dias', dir:-1};
+const COL_RCON = [
+  ['pos','#','num'], ['nome','Contratada',''], ['n','Repactuações','num'], ['ids','Intervenções','num'],
+  ['ad','Adiaram a entrega','num'], ['dias','Dias adiados','num'], ['media','Adiamento médio','num'],
+  ['maior','Maior adiamento','num'], ['motivo','Motivo predominante','col-motr']
+];
+function rankContratadas(lista){
+  const m = contarRep(lista, 'contratada');
+  return Object.entries(m).map(([nome,o]) => {
+    const dela = lista.filter(x => x.contratada === nome);
+    const cont = {};
+    dela.forEach(x => cont[x.motivo] = (cont[x.motivo] || 0) + 1);
+    const pred = Object.entries(cont).sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0],'pt-BR'))[0];
+    return {nome, n:o.n, ids:o.ids.size, ad:o.ad, dias:o.dias, maior:o.maior,
+            media: o.ad ? Math.round(o.dias / o.ad) : 0,
+            motivo: pred ? pred[0] : '—', motivoN: pred ? pred[1] : 0};
+  });
+}
+function pintarRankingContratadas(rank, dr){
+  const linhas = rank.slice().sort((a,b) => {
+    if(ordemRepCon.col === 'nome' || ordemRepCon.col === 'motivo')
+      return String(a[ordemRepCon.col]).localeCompare(String(b[ordemRepCon.col]),'pt-BR') * ordemRepCon.dir;
+    return (a[ordemRepCon.col] - b[ordemRepCon.col]) * ordemRepCon.dir || b.n - a.n;
+  });
+  const maisRepacta = rank.slice().sort((a,b) => b.n - a.n || b.dias - a.dias)[0];
+  const maisAdia = rank.slice().sort((a,b) => b.dias - a.dias || b.n - a.n)[0];
+  $('#rc-sub').textContent = linhas.length
+    ? (linhas.length === 1
+        ? 'Uma única contratada no recorte: ' + linhas[0].nome
+        : fmt(linhas.length) + ' contratadas · quem mais remarca: ' + maisRepacta.nome +
+          ' (' + plRep(maisRepacta.n) + ')' +
+          (maisAdia && maisAdia.dias
+            ? ' · quem mais custa prazo: ' + maisAdia.nome + ' (' + plDias(maisAdia.dias) + ')' : ''))
+    : 'Nenhuma contratada no recorte atual';
+  document.querySelector('#tab-rcon thead tr').innerHTML = cabecalho(COL_RCON, ordemRepCon);
+  const total = linhas.reduce((a,o) => ({n:a.n+o.n, ids:a.ids+o.ids, ad:a.ad+o.ad, dias:a.dias+o.dias,
+    maior:Math.max(a.maior,o.maior)}), {n:0,ids:0,ad:0,dias:0,maior:0});
+  const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' +
+    (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') + '>' + fmt(v) + '</td>';
+  document.querySelector('#tab-rcon tbody').innerHTML = linhas.length ? linhas.map((o,i) =>
+    '<tr>' +
+    '<td class="num" style="color:var(--muted);font-weight:700">' + (i+1) + 'º</td>' +
+    '<td><b title="' + esc(o.nome) + '">' + esc(o.nome) + '</b></td>' +
+    '<td class="num"><b>' + fmt(o.n) + '</b></td>' +
+    '<td class="num">' + fmt(o.ids) + '</td>' +
+    '<td class="num' + (o.ad ? '' : ' zero') + '"' + (o.ad ? ' style="color:var(--t-atraso);font-weight:700"' : '') + '>' +
+      fmt(o.ad) + (o.ad ? ' <span style="color:var(--muted);font-weight:400">' + pc(o.ad, o.n) + '</span>' : '') + '</td>' +
+    cel(o.dias, 'var(--t-atraso)') +
+    '<td class="num">' + (o.ad ? fmt(o.media) + ' d' : '—') + '</td>' +
+    '<td class="num">' + (o.maior ? fmt(o.maior) + ' d' : '—') + '</td>' +
+    '<td class="col-motr" title="' + esc(o.motivo) + '"><span style="color:' +
+      (COR_MOTIVO[o.motivo] || 'var(--ink-2)') + ';font-weight:600">' + esc(o.motivo) + '</span>' +
+      (o.motivoN ? '<span style="color:var(--muted)"> · ' + fmt(o.motivoN) + '</span>' : '') +
+    '</td></tr>').join('') +
+    '<tr class="total-linha"><td></td><td>TOTAL — ' + fmt(linhas.length) +
+      (linhas.length === 1 ? ' contratada' : ' contratadas') + '</td>' +
+      '<td class="num">' + fmt(total.n) + '</td><td class="num">' + fmt(total.ids) + '</td>' +
+      '<td class="num">' + fmt(total.ad) + '</td><td class="num">' + fmt(total.dias) + '</td>' +
+      '<td class="num">' + (total.ad ? fmt(Math.round(total.dias / total.ad)) + ' d' : '—') + '</td>' +
+      '<td class="num">' + (total.maior ? fmt(total.maior) + ' d' : '—') + '</td><td></td></tr>'
+    : '<tr><td colspan="' + COL_RCON.length + '" class="sem" style="padding:26px">Nenhuma contratada no recorte atual.</td></tr>';
+  $('#rc-leg').innerHTML = '<span class="it"><b>Repactuações</b> é quantas vezes a empresa remarcou um prazo; ' +
+    '<b>Adiaram a entrega</b> é quantas dessas empurraram o término para a frente; ' +
+    '<b>Dias adiados</b> é a soma desses adiamentos. Clique no cabeçalho para reordenar.</span>';
+}
+
 /* ------------------------------------------------------- motivos e responsáveis */
 function abaRepMotivos(dr){
   const mot = contarRep(dr, 'motivo');
@@ -3991,16 +4044,18 @@ function abaRepMotivos(dr){
   })), {alvo: Math.max(150, Math.min(340, Math.max(1,porDias.length)*40 + 20)), altMax:32,
         aria:'dias adiados por motivo'});
 
-  const con = contarRep(dr, 'contratada');
-  const rankCon = Object.entries(con).sort((a,b) => b[1].n - a[1].n || a[0].localeCompare(b[0],'pt-BR'));
-  $('#rm-sub-con').textContent = rankCon.length
-    ? 'Quem executa as entregas remarcadas' + avisoCorte(Math.min(10, rankCon.length), rankCon.length, 'contratadas')
-    : 'Nada no recorte atual';
-  barrasH($('#rm-con'), rankCon.slice(0,10).map(([k,o]) => ({
-    rot:k, v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)', tip:k + ' — ' + plRep(o.n),
-    v2:o.ad, v2txt:fmt(o.ad), cor2:'var(--c-atraso)',
-    tip2:k + ' — ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') + ' a entrega, ' + plDias(o.dias)
-  })), {alvo: Math.max(150, Math.min(320, rankCon.length*44 + 20)), altMax:34, aria:'repactuações por contratada'});
+  const ad = dr.filter(x => x.mov === 'adiada');
+  const soma = ad.reduce((s,x) => s + x.dFim, 0);
+  const media = ad.length ? Math.round(soma / ad.length) : 0;
+  const mediana = medianaDe(ad.map(x => x.dFim));
+  const maior = ad.length ? Math.max(...ad.map(x => x.dFim)) : 0;
+  $('#rep-sub-faixas').textContent = ad.length
+    ? 'Adiamento médio de ' + plDias(media) + ' · mediana de ' + plDias(mediana) + ' · maior: ' + plDias(maior)
+    : 'Nenhum adiamento no recorte atual';
+  barrasH($('#rep-faixas'), FAIXAS_REP.map(f => ({
+    rot:f.rot, v: dr.filter(f.teste).length, vtxt:fmt(dr.filter(f.teste).length), cor:f.cor,
+    tip:f.rot + ' — repactuações nessa faixa'
+  })), {alvo:280, altMax:26, aria:'repactuações por tamanho do deslocamento'});
 
   const tip = contarRep(dr, x => x.tipo || 'SEM TIPO');
   const rankTip = Object.entries(tip).sort((a,b) => b[1].n - a[1].n || a[0].localeCompare(b[0],'pt-BR'));
@@ -4011,17 +4066,24 @@ function abaRepMotivos(dr){
     tip2:k + ' — ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') + ' a entrega, ' + plDias(o.dias)
   })), {alvo: Math.max(150, Math.min(320, rankTip.length*44 + 20)), altMax:34, aria:'repactuações por tipo de entrega'});
 
-  /* cruzamento motivo × unidade */
-  const unis = [...new Set(dr.map(x => x.unidade))]
-    .sort((a,b) => dr.filter(x => x.unidade === b).length - dr.filter(x => x.unidade === a).length ||
-                   nomeCurto(a).localeCompare(nomeCurto(b),'pt-BR'));
+  /* cruzamento do motivo com quem o painel tem para cruzar: as unidades na visão da rede,
+     as contratadas quando a conta enxerga uma unidade só */
+  const porUnidade = !ESCOPO();
+  const campo = porUnidade ? 'unidade' : 'contratada';
+  const colunas = [...new Set(dr.map(x => x[campo]))]
+    .sort((a,b) => dr.filter(x => x[campo] === b).length - dr.filter(x => x[campo] === a).length ||
+                   a.localeCompare(b,'pt-BR'));
+  const rotCol = c => porUnidade ? siglaDe(c) : c;
   const motivos = porQtd.map(([k]) => k);
-  $('#rm-sub-matriz').textContent = motivos.length && unis.length
-    ? 'Quantas repactuações de cada motivo em cada unidade'
+  $('#rm-sub-matriz').textContent = motivos.length && colunas.length
+    ? (porUnidade ? 'Quantas repactuações de cada motivo em cada unidade'
+                  : 'Quantas repactuações de cada motivo por contratada')
     : 'Nada no recorte atual';
+  const tit = $('#rm-t-matriz');
+  if(tit) tit.textContent = porUnidade ? 'Motivo por unidade de saúde' : 'Motivo por contratada';
   document.querySelector('#tab-rmatriz thead tr').innerHTML =
-    '<th scope="col">Motivo</th>' + unis.map(u =>
-      '<th scope="col" class="num" title="' + esc(u) + '">' + esc(siglaDe(u)) + '</th>').join('') +
+    '<th scope="col">Motivo</th>' + colunas.map(c =>
+      '<th scope="col" class="num" title="' + esc(c) + '">' + esc(rotCol(c)) + '</th>').join('') +
     '<th scope="col" class="num">Total</th><th scope="col" class="num">Dias adiados</th>';
   const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' +
     (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') + '>' + fmt(v) + '</td>';
@@ -4029,12 +4091,12 @@ function abaRepMotivos(dr){
     const linha = dr.filter(x => x.motivo === m);
     return '<tr><td><span class="badge" style="background:transparent;color:' +
       (COR_MOTIVO[m] || 'var(--ink)') + ';padding-left:0;font-weight:700">' + esc(m) + '</span></td>' +
-      unis.map(u => cel(linha.filter(x => x.unidade === u).length)).join('') +
+      colunas.map(c => cel(linha.filter(x => x[campo] === c).length)).join('') +
       '<td class="num"><b>' + fmt(linha.length) + '</b></td>' +
       cel(linha.reduce((s,x) => s + x.adiamento, 0), 'var(--t-atraso)') + '</tr>';
   }).join('') +
     '<tr class="total-linha"><td>TOTAL</td>' +
-    unis.map(u => '<td class="num">' + fmt(dr.filter(x => x.unidade === u).length) + '</td>').join('') +
+    colunas.map(c => '<td class="num">' + fmt(dr.filter(x => x[campo] === c).length) + '</td>').join('') +
     '<td class="num">' + fmt(dr.length) + '</td>' +
     '<td class="num">' + fmt(dr.reduce((s,x) => s + x.adiamento, 0)) + '</td></tr>';
 }
@@ -5118,12 +5180,17 @@ document.querySelector('#tab-rep thead').addEventListener('click', e => {
   ordemRep = {col:th.dataset.k, dir: ordemRep.col === th.dataset.k ? -ordemRep.dir : -1};
   desenhar();
 });
+document.querySelector('#tab-rcon thead').addEventListener('click', e => {
+  const th = e.target.closest('th'); if(!th || th.dataset.k === 'pos') return;
+  ordemRepCon = {col:th.dataset.k, dir: ordemRepCon.col === th.dataset.k ? -ordemRepCon.dir : -1};
+  desenhar();
+});
 document.querySelector('#tab-runi thead').addEventListener('click', e => {
   const th = e.target.closest('th'); if(!th) return;
   ordemRepUni = {col:th.dataset.k, dir: ordemRepUni.col === th.dataset.k ? -ordemRepUni.dir : -1};
   desenhar();
 });
-['#tab-rep','#tab-runi'].forEach(sel => {
+['#tab-rep','#tab-runi','#tab-rcon'].forEach(sel => {
   const cab = document.querySelector(sel + ' thead');
   if(cab) cab.addEventListener('keydown', e => {
     const th = e.target.closest('th');
