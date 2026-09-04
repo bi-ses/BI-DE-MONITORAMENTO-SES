@@ -95,7 +95,8 @@ section[data-painel]:not([hidden]){animation:entra .18s ease-out}
   color:var(--muted);white-space:nowrap}
 .pn:hover{color:var(--navy-2)}
 .pn[aria-selected="true"]{background:var(--navy);color:var(--plane)}
-body.em-repac .diag-wrap{display:none}
+body.em-repac .diag-entregas{display:none}
+body:not(.em-repac) .diag-repac{display:none}
 .aba{background:none;border:0;padding:13px 16px 11px;font-size:13.5px;font-weight:600;
   color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
 .aba:hover{color:var(--navy-2)}
@@ -641,12 +642,22 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
       <div class="diag-wrap">
         <button class="ib" id="b-diag" title="Diagnóstico de dados" aria-label="Diagnóstico de dados" aria-haspopup="true" aria-expanded="false">⚑</button>
         <div class="diag-pop" id="diag-pop" hidden role="menu">
-          <button type="button" role="menuitem" data-aba="erros"><span>⚠ Erros e inconsistências</span><span class="n" id="diag-n-erros">0</span></button>
-          <div class="diag-top" id="diag-top-erros"></div>
-          <button type="button" role="menuitem" data-aba="semdata"><span>📅 Intervenções sem data</span><span class="n" id="diag-n-semdata">0</span></button>
-          <div class="diag-top" id="diag-top-semdata"></div>
-          <button type="button" role="menuitem" data-aba="semarea"><span>📐 Intervenções sem área</span><span class="n" id="diag-n-semarea">0</span></button>
-          <div class="diag-top" id="diag-top-semarea"></div>
+          <div class="diag-entregas">
+            <button type="button" role="menuitem" data-aba="erros"><span>⚠ Erros e inconsistências</span><span class="n" id="diag-n-erros">0</span></button>
+            <div class="diag-top" id="diag-top-erros"></div>
+            <button type="button" role="menuitem" data-aba="semdata"><span>📅 Intervenções sem data</span><span class="n" id="diag-n-semdata">0</span></button>
+            <div class="diag-top" id="diag-top-semdata"></div>
+            <button type="button" role="menuitem" data-aba="semarea"><span>📐 Intervenções sem área</span><span class="n" id="diag-n-semarea">0</span></button>
+            <div class="diag-top" id="diag-top-semarea"></div>
+          </div>
+          <div class="diag-repac">
+            <button type="button" role="menuitem" data-aba="rerros" data-modo="erro"><span>⚠ Erros no histórico</span><span class="n" id="diag-n-rerro">0</span></button>
+            <div class="diag-top" id="diag-top-rerro"></div>
+            <button type="button" role="menuitem" data-aba="rerros" data-modo="atencao"><span>👁 Pontos de atenção</span><span class="n" id="diag-n-ratencao">0</span></button>
+            <div class="diag-top" id="diag-top-ratencao"></div>
+            <button type="button" role="menuitem" data-aba="rerros" data-modo="branco"><span>📝 Falta de preenchimento</span><span class="n" id="diag-n-rbranco">0</span></button>
+            <div class="diag-top" id="diag-top-rbranco"></div>
+          </div>
           <button type="button" role="menuitem" id="diag-sair" data-voltar hidden><span>← Sair do diagnóstico</span></button>
         </div>
       </div>
@@ -1018,6 +1029,22 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
         <div class="card-h"><div class="card-t">Quadro por unidade</div>
           <div class="card-s" id="ru-sub-tab">Clique numa linha para abrir os registros dessa unidade</div></div>
         <div class="tabela-wrap"><table id="tab-runi"><thead><tr></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="painel-rerros" role="tabpanel" aria-labelledby="aba-rregistros" tabindex="0" data-painel="rerros" hidden>
+      <div class="card">
+        <div class="card-h" style="display:flex;flex-direction:row;gap:14px;align-items:flex-end;flex-wrap:wrap">
+          <div style="min-width:230px">
+            <div class="card-t">Conferência da aba de histórico de prazos</div>
+            <div class="card-s" id="sub-rerros">—</div>
+          </div>
+          <button class="bs b-voltar" data-voltar style="margin-left:auto;padding:7px 14px">← Voltar ao painel</button>
+          <button class="bs" id="b-csv-rerros" style="padding:7px 14px">↓ CSV para correção</button>
+        </div>
+        <div class="kpis" id="kpis-rerros" style="padding:0 18px 16px"></div>
+        <div id="graf-rerros"></div>
+        <div id="rerros-corpo"></div>
       </div>
     </section>
 
@@ -2391,10 +2418,10 @@ const cartao = ([c,rot,n,sub,acao]) => {
 /* Estando numa aba de diagnóstico, a bandeirinha vira a porta de saída: clicar nela
    devolve o painel de onde se veio, em vez de só reabrir o menu. */
 let ABA_ANTES_DIAG = 'geral';
-const abaDeDiagnostico = a => a === 'erros' || a === 'semdata' || a === 'semarea';
+const abaDeDiagnostico = a => a === 'erros' || a === 'semdata' || a === 'semarea' || a === 'rerros';
 function trocarAba(nome, focar){
   if(!abaDeDiagnostico(nome)) ABA_ANTES_DIAG = nome;
-  if(abaRepac(nome)) ABA_REPAC = nome;
+  if(abaRepac(nome) && !abaDeDiagnostico(nome)) ABA_REPAC = nome;
   else if(!abaDeDiagnostico(nome)) ABA_ENTREGAS = nome;
   ABA = nome;
   $$('.aba').forEach(b => {
@@ -2405,7 +2432,7 @@ function trocarAba(nome, focar){
   });
   if(!abaRepac(nome) && MODO_PAINEL === 'repac') trocarPainel('entregas');
   $$('section[data-painel]').forEach(s => s.hidden = s.dataset.painel !== nome);
-  const diag = nome === 'erros' || nome === 'semdata' || nome === 'semarea';
+  const diag = abaDeDiagnostico(nome);
   const bd = $('#b-diag');
   if(bd){
     bd.classList.toggle('ativo', diag);
@@ -2423,7 +2450,8 @@ const NOME_ABA = {geral:'Visão geral', vencimentos:'Vencimentos', cronograma:'C
                   execucao:'Execução', carteira:'Distribuição',
                   unidades:'Unidades', pavimentos:'Pavimentos', mapa:'Mapa', consulta:'Consulta',
                   erros:'Erros', semdata:'Sem data', semarea:'Sem área',
-                  rgeral:'Visão geral', rmotivos:'Motivos', runidades:'Unidades', rregistros:'Registros'};
+                  rgeral:'Visão geral', rmotivos:'Motivos', runidades:'Unidades', rregistros:'Registros',
+                  rerros:'Conferência do histórico'};
 function resumoImpressao(n){
   const f = [];
   if(ESCOPO() && LINHAS.length) f.push('Unidade: ' + nomeCurto(LINHAS[0].unidade) + ' (' + ESCOPO() + ')');
@@ -2450,6 +2478,7 @@ function desenhar(){
       if(ABA === 'rmotivos')   return abaRepMotivos(dr);
       if(ABA === 'runidades')  return abaRepUnidades(dr);
       if(ABA === 'rregistros') return abaRepRegistros(dr);
+      if(ABA === 'rerros')     return abaRepErros();
     });
   }
   const d = filtradas();
@@ -2499,6 +2528,16 @@ function atualizarDiagBadges(){
         'Quem mais deixa em branco');
   pinta('#diag-top-semarea', topo(LINHAS.filter(r => semArea(r) && !r.concluido), r => r.unidade),
         'Quem mais deixa sem área');
+
+  /* mesma bandeirinha, outro conjunto de contas quando o painel aberto é o de repactuações */
+  const probsRep = diagnosticarRepac();
+  [['erro','#diag-n-rerro','#diag-top-rerro'], ['atencao','#diag-n-ratencao','#diag-top-ratencao'],
+   ['branco','#diag-n-rbranco','#diag-top-rbranco']].forEach(([sev, idN, idTop]) => {
+    const sub = probsRep.filter(p => p.sev === sev);
+    const b = $(idN);
+    if(b){ b.textContent = fmt(sub.length); b.classList.toggle('zero', sub.length === 0); }
+    pinta(idTop, topo(sub.filter(p => p.unidade !== '—'), p => p.unidade), 'Onde se concentra');
+  });
 }
 
 /* --- visão geral --- */
@@ -3625,13 +3664,14 @@ ORDEM_MOV.forEach(k => CHAVE_MOV[MOV[k].rot] = k);
 const PALETA_MOTIVO = ['var(--c-atraso)','var(--c-prazo)','var(--c-fiscal)','var(--c-projeto)',
                        'var(--c-iniciar)','var(--c-critico)','var(--c-concluido)','var(--c-atraso-2)'];
 
-let REPAC = [], REPAC_FORA = 0, COR_MOTIVO = {};
+let REPAC = [], REPAC_FORA = [], COR_MOTIVO = {}, CAB_HIST = [];
 let HIST_GRADE = null, HIST_ERRO = '', HIST_LIDO = 0, HIST_VOO = false;
 let MODO_PAINEL = 'entregas', ABA_ENTREGAS = 'geral', ABA_REPAC = 'rgeral';
 let ordemRep = {col:'dFim', dir:-1}, ordemRepUni = {col:'n', dir:-1};
 const NOME_ENTREGAS = 'Painel de Monitoramento das Entregas';
 const NOME_REPAC = 'Controle de Repactuações';
-const abaRepac = a => a === 'rgeral' || a === 'rmotivos' || a === 'runidades' || a === 'rregistros';
+const abaRepac = a => a === 'rgeral' || a === 'rmotivos' || a === 'runidades' ||
+                      a === 'rregistros' || a === 'rerros';
 
 /* mesmo casamento de colunas usado na carteira: nome exato, depois começo, depois pedaço */
 function acharColunas(cab, mapa){
@@ -3649,7 +3689,7 @@ function acharColunas(cab, mapa){
 }
 
 function montarRepac(){
-  REPAC = []; REPAC_FORA = 0; COR_MOTIVO = {};
+  REPAC = []; REPAC_FORA = []; COR_MOTIVO = {}; CAB_HIST = [];
   if(!HIST_GRADE || !LINHAS.length) return;
   const grade = HIST_GRADE;
   let hi = -1;
@@ -3662,6 +3702,8 @@ function montarRepac(){
     HIST_ERRO = 'a aba de histórico foi lida, mas não achei o cabeçalho — ela precisa ter uma coluna "ID" e outra "Término Previsto Anterior".';
     return;
   }
+  CAB_HIST = (grade[hi] || []).map((v,k) => ({rot:String(v ?? '').trim(), col:letraColuna(k), idx:k}))
+    .filter(c => c.rot);
   const idx = acharColunas((grade[hi] || []).map(norm), COLS_REP);
   if(idx.id < 0 || idx.fimAnt < 0){
     HIST_ERRO = 'a aba de histórico não tem as colunas obrigatórias "ID" e "Término Previsto Anterior".';
@@ -3680,7 +3722,9 @@ function montarRepac(){
     const alvo = porId.get(norm(id));
     if(!alvo){
       /* numa conta de unidade, o histórico das outras não pode nem ser contado */
-      if(!ESCOPO()) REPAC_FORA++;
+      if(!ESCOPO()) REPAC_FORA.push({linha:i + 1, id,
+        unidade: txt(pega(l,'unidade')), descricao: txt(pega(l,'descricao')),
+        _bruto: CAB_HIST.map(c => valorBruto(l[c.idx]))});
       continue;
     }
     cru.push({
@@ -3690,7 +3734,9 @@ function montarRepac(){
       tipo: alvo.tipo || txt(pega(l,'tipo')).toUpperCase(),
       contratada: txt(pega(l,'contratada')).toUpperCase() || SEM_CONTRATADA,
       motivo: txt(pega(l,'motivo')).toUpperCase() || SEM_MOTIVO,
-      iniAnt: parseData(pega(l,'iniAnt')), fimAnt: parseData(pega(l,'fimAnt'))
+      iniAnt: parseData(pega(l,'iniAnt')), fimAnt: parseData(pega(l,'fimAnt')),
+      iniAntRaw: txt(pega(l,'iniAnt')), fimAntRaw: txt(pega(l,'fimAnt')),
+      _bruto: CAB_HIST.map(c => valorBruto(l[c.idx]))
     });
   }
   const grupos = new Map();
@@ -3833,11 +3879,12 @@ function pintarAvisoRepac(){
         'desta unidade aparece na aba HISTÓRICO DE PRAZOS da planilha — ou seja, nenhum prazo ' +
         'foi remarcado até agora.'
       : '<b>A aba HISTÓRICO DE PRAZOS não trouxe nenhum registro aproveitável.</b><br>' +
-        (REPAC_FORA ? plRep(REPAC_FORA) + ' têm ID que não existe na carteira e por isso ficaram de fora.'
-                    : 'Ela está vazia ou sem nenhuma linha preenchida.');
+        (REPAC_FORA.length
+          ? plRep(REPAC_FORA.length) + ' têm ID que não existe na carteira e por isso ficaram de fora.'
+          : 'Ela está vazia ou sem nenhuma linha preenchida.');
   }
   if(cx){ cx.hidden = !msg; cx.innerHTML = msg; }
-  ['rgeral','rmotivos','runidades','rregistros'].forEach(n => {
+  ['rgeral','rmotivos','runidades','rregistros','rerros'].forEach(n => {
     const s = document.querySelector('section[data-painel="' + n + '"]');
     if(s) s.hidden = msg ? true : n !== ABA;
   });
@@ -3871,35 +3918,30 @@ function abaRepGeral(dr){
   const antec = dr.filter(x => x.mov === 'antecipada').length;
   const carteira = LINHAS.length;
 
-  /* a contratada que mais custa prazo entra como cartão: é a primeira pergunta que se faz
-     diante de uma remarcação, e vem detalhada logo abaixo no ranking */
+  /* Quatro números, não seis: quantas remarcações houve, quanto custaram, qual o tamanho
+     típico e qual o pior caso. Quem é a contratada está logo abaixo, no ranking; a
+     reincidência entra na leitura do gráfico de efeito. Cartão com legenda cortada não
+     informa nada — por isso as frases aqui cabem inteiras. */
   const rankCon = rankContratadas(dr);
-  const pior = rankCon.slice().sort((a,b) => b.dias - a.dias || b.n - a.n)[0];
   $('#rep-kpis').innerHTML = [
     ['info','Repactuações', fmt(total),
       total ? 'em ' + fmt(ids.size) + (ids.size === 1 ? ' intervenção' : ' intervenções') +
               ' · ' + pc(ids.size, carteira) + ' da carteira'
-            : 'nenhuma no recorte'],
+            : 'nenhuma no recorte atual'],
     ['crit','Dias adiados', fmt(soma),
-      ad.length ? 'somando ' + fmt(ad.length) + (ad.length === 1 ? ' adiamento' : ' adiamentos') : 'nenhum adiamento no recorte'],
+      ad.length ? 'em ' + fmt(ad.length) + (ad.length === 1 ? ' adiamento' : ' adiamentos') : 'nenhum adiamento aqui'],
     ['warn','Adiamento médio', ad.length ? fmt(media) + ' d' : '—',
-      ad.length ? 'mediana de ' + plDias(mediana) : 'sem adiamento para calcular'],
+      ad.length ? 'mediana de ' + fmt(mediana) + ' dias' : 'sem adiamento para calcular'],
     ['crit','Maior adiamento', maior ? fmt(maior.dFim) + ' d' : '—',
-      maior ? dicaRep(maior) : 'nenhum prazo empurrado para a frente'],
-    ['crit','Contratada que mais adia', pior && pior.dias ? fmt(pior.dias) + ' d' : '—',
-      pior && pior.dias ? pior.nome + ' · ' + fmt(pior.ad) + (pior.ad === 1 ? ' adiamento' : ' adiamentos')
-                        : 'nenhuma adiou entrega no recorte'],
-    [reinc ? 'warn' : 'info', reinc ? 'Remarcadas mais de uma vez' : 'Sem mexer no término',
-      fmt(reinc ? reinc : semEfeito),
-      reinc ? 'a mesma entrega remarcada de novo' : 'mudou só o início, ou nada mudou']
+      maior ? dicaRep(maior) : 'nenhum prazo foi empurrado']
   ].map(cartao).join('');
 
   /* 1. o que a repactuação fez com a data de entrega */
   const segs = ORDEM_MOV.map(k => ({nome:MOV[k].rot, cor:MOV[k].cor, v: dr.filter(x => x.mov === k).length}));
   $('#rep-sub-pizza').textContent = total
-    ? fmt(ad.length) + ' de ' + fmt(total) + ' empurraram a entrega para a frente' +
-      (antec ? ' · ' + fmt(antec) + (antec === 1 ? ' antecipou' : ' anteciparam') : '') +
-      (semEfeito ? ' · ' + fmt(semEfeito) + ' sem mexer no término' : '')
+    ? fmt(ad.length) + (ad.length === 1 ? ' adiou' : ' adiaram') + ' a entrega' +
+      (semEfeito ? ' · ' + fmt(semEfeito) + ' sem mexer no término' : '') +
+      (reinc ? ' · ' + fmt(reinc) + (reinc === 1 ? ' remarcada duas vezes' : ' remarcadas duas vezes') : '')
     : 'Nada no recorte atual';
   pizza($('#rep-pizza'), segs, total, 'repactuações');
   $('#rep-leg-pizza').innerHTML = segs.filter(g => g.v).map(g =>
@@ -4113,6 +4155,172 @@ function abaRepUnidades(dr){
       '<td class="num">' + fmt(soma.ad) + '</td><td class="num">' + fmt(soma.dias) + '</td>' +
       '<td class="num">' + (soma.ad ? fmt(Math.round(soma.dias / soma.ad)) + ' d' : '—') + '</td>' +
       '<td class="num">' + (soma.maior ? fmt(soma.maior) + ' d' : '—') + '</td><td></td></tr>' : '');
+}
+
+/* ------------------------------------------------------- conferência do histórico
+   A mesma ideia da bandeirinha do painel de entregas, aplicada à aba de histórico de
+   prazos: em vez de julgar a remarcação, o painel confere se ela está registrada de um
+   jeito que dê para ler. Três severidades — o que impede a conta (erro), o que merece
+   uma segunda olhada (atenção) e o campo que ficou em branco (preencher). */
+let MODO_DIAG_REP = 'todos';
+const SEV_REP = {erro:{rot:'Erro', badge:'b-crit'}, atencao:{rot:'Atenção', badge:'b-warn'},
+                 branco:{rot:'Preencher', badge:'b-ser'}};
+const ANO_MIN = 2015, ANO_MAX = 2040;
+let _diagRepBase = null, _diagRepCache = [];
+
+function diagnosticarRepac(){
+  if(_diagRepBase === REPAC) return _diagRepCache;
+  const probs = [];
+  const add = (x, sev, campo, detalhe) => probs.push({
+    sev, campo, detalhe, linha:x.linha, unidade:x.unidade, sigla:siglaDe(x.unidade),
+    descricao:x.descricao || '—', motivo:x.motivo, registro:x
+  });
+
+  /* linhas do histórico cujo ID não existe na carteira: não entram em nenhuma conta do
+     painel, então o único lugar onde elas aparecem é aqui */
+  REPAC_FORA.forEach(o => probs.push({
+    sev:'erro', campo:'ID', linha:o.linha, unidade:o.unidade || '—',
+    sigla: o.unidade ? siglaDe(o.unidade) : '—', descricao:o.descricao || '—', motivo:'—',
+    detalhe:'O ID desta linha não existe na aba de monitoramento. Enquanto não bater, ' +
+            'a repactuação não entra em nenhum número deste painel.',
+    registro:{_bruto:o._bruto}
+  }));
+
+  const vistos = new Map();
+  for(const x of REPAC){
+    /* --- erros: sem isto a repactuação não pode ser medida --- */
+    if(!x.fimAnt)
+      add(x, 'erro', 'Término previsto anterior',
+        x.fimAntRaw ? 'O valor “' + x.fimAntRaw + '” não é uma data válida.'
+                    : 'Está em branco — sem o término antigo não dá para medir o deslocamento desta remarcação.');
+    if(x.fimAnt && x.iniAnt && x.fimAnt < x.iniAnt)
+      add(x, 'erro', 'Término previsto anterior',
+        'O término anterior (' + dbr(x.fimAnt) + ') é anterior ao início anterior (' + dbr(x.iniAnt) + ').');
+    [['Início previsto anterior', x.iniAnt], ['Término previsto anterior', x.fimAnt]].forEach(([campo,v]) => {
+      if(v && (v.getFullYear() < ANO_MIN || v.getFullYear() > ANO_MAX))
+        add(x, 'erro', campo, 'A data ' + dbr(v) + ' está fora da faixa plausível (' + ANO_MIN + ' a ' + ANO_MAX + ').');
+    });
+    if(x.fimAnt){
+      const chave = x.id + '|' + (x.iniAnt ? +x.iniAnt : '') + '|' + (+x.fimAnt);
+      if(vistos.has(chave))
+        add(x, 'erro', 'Registro duplicado',
+          'A linha ' + vistos.get(chave) + ' já registra este mesmo ID com o mesmo par de datas. ' +
+          'Uma das duas está contando duas vezes o mesmo adiamento.');
+      else vistos.set(chave, x.linha);
+    }
+
+    /* --- atenção: dá para ler, mas o registro não fecha com o que se espera dele --- */
+    if(x.mov === 'semMudanca')
+      add(x, 'atencao', 'Prazo sem mudança',
+        'O prazo registrado como anterior é igual ao que passou a valer — a linha não registra ' +
+        'remarcação nenhuma.');
+    if(x.mov === 'semAtual')
+      add(x, 'atencao', 'Término previsto atual',
+        'A intervenção não tem mais término previsto na carteira: o histórico aponta para um prazo ' +
+        'que deixou de existir.');
+    if(x.mov === 'antecipada')
+      add(x, 'atencao', 'Término antecipado',
+        'O término foi puxado ' + plDias(-x.dFim) + ' para trás (de ' + dbr(x.fimAnt) + ' para ' +
+        dbr(x.fimNovo) + ') — confirme se as datas não foram trocadas.');
+    if(x.mov === 'adiada' && x.dFim > 365)
+      add(x, 'atencao', 'Adiamento muito longo',
+        'Adiamento de ' + plDias(x.dFim) + ', mais de um ano (de ' + dbr(x.fimAnt) + ' para ' +
+        dbr(x.fimNovo) + ') — vale confirmar o prazo anterior.');
+    if(x.fimAnt && !x.iniAnt)
+      add(x, 'atencao', 'Início previsto anterior',
+        'Está em branco, embora o término anterior esteja preenchido.');
+
+    /* --- preenchimento: campo que a planilha deixou vazio --- */
+    if(x.motivo === SEM_MOTIVO)
+      add(x, 'branco', 'Motivo', 'A coluna MOTIVO está em branco — sem ela não dá para agrupar a causa da remarcação.');
+    if(x.contratada === SEM_CONTRATADA)
+      add(x, 'branco', 'Contratada', 'A coluna CONTRATADA está em branco — a repactuação fica sem responsável.');
+  }
+  probs.sort((a,b) => ORDEM_SEV[a.sev] - ORDEM_SEV[b.sev] || a.linha - b.linha);
+  _diagRepBase = REPAC; _diagRepCache = probs;
+  return probs;
+}
+const ORDEM_SEV = {erro:0, atencao:1, branco:2};
+const contaSev = sev => diagnosticarRepac().filter(p => p.sev === sev).length;
+
+function abaRepErros(){
+  const todos = diagnosticarRepac();
+  const modo = MODO_DIAG_REP;
+  const lista = modo === 'todos' ? todos : todos.filter(p => p.sev === modo);
+  const n = s => todos.filter(p => p.sev === s).length;
+  const linhasComProblema = new Set(todos.map(p => p.linha)).size;
+
+  $('#sub-rerros').textContent = todos.length
+    ? plural(todos.length, 'ocorrência', 'ocorrências') + ' em ' +
+      plural(linhasComProblema, 'linha do histórico', 'linhas do histórico') +
+      ', de ' + fmt(REPAC.length + REPAC_FORA.length) + ' registradas'
+    : 'Verificação automática sobre as ' + fmt(REPAC.length) + ' repactuações da planilha';
+
+  const cartaoDiag = (chave, cor, rot, num, sub) => cartao([cor, rot, fmt(num), sub,
+    {id:'rep-' + chave, ativo: modo === chave, dica:'Ver só ' + rot.toLowerCase()}]);
+  $('#kpis-rerros').innerHTML = [
+    cartaoDiag('erro','crit','Erros', n('erro'), 'impedem a conta e precisam de correção'),
+    cartaoDiag('atencao','warn','Pontos de atenção', n('atencao'), 'o registro não fecha com o esperado'),
+    cartaoDiag('branco','info','Falta de preenchimento', n('branco'), 'campo em branco na aba de histórico'),
+    cartaoDiag('todos','good','Tudo junto', todos.length, 'as três listas na mesma tabela')
+  ].join('');
+
+  if(!lista.length){
+    $('#graf-rerros').innerHTML = '';
+    $('#rerros-corpo').innerHTML =
+      '<div style="padding:46px 24px;text-align:center;color:var(--ink-2)">' +
+      '<div style="font-size:34px;line-height:1;margin-bottom:10px">✓</div>' +
+      '<div style="font-weight:700;color:var(--navy);font-size:15px;margin-bottom:6px">' +
+        (todos.length ? 'Nada nesta lista' : 'Nenhum problema encontrado') + '</div>' +
+      '<div style="font-size:12.5px;max-width:520px;margin:0 auto">' +
+        (todos.length
+          ? 'Escolha outra lista nos cartões acima.'
+          : 'Conferi as datas, a ordem entre elas, o encontro de cada linha com a carteira, ' +
+            'as duplicidades e os campos de motivo e contratada — está tudo preenchido e coerente.') +
+      '</div></div>';
+    return;
+  }
+
+  /* ranking por unidade, erros primeiro */
+  const m = {};
+  lista.forEach(p => {
+    const o = m[p.unidade] = m[p.unidade] || {erro:0, outros:0};
+    if(p.sev === 'erro') o.erro++; else o.outros++;
+  });
+  const rank = Object.entries(m).map(([u,o]) => ({u, ...o, t:o.erro + o.outros}))
+    .sort((a,b) => b.erro - a.erro || b.t - a.t);
+  $('#graf-rerros').innerHTML = rank.length > 1
+    ? '<div class="card-h" style="border-top:1px solid var(--grid)">' +
+      '<div class="card-t">Onde estão as ocorrências</div><div class="card-s">' +
+      'Unidades ordenadas pelos erros primeiro' + esc(avisoCorte(Math.min(12, rank.length), rank.length, 'unidades')) +
+      '</div></div><div class="plot" id="graf-rerros-plot"></div>' +
+      '<div class="leg"><span class="it"><i class="sw" style="background:var(--c-atraso)"></i>Erros</span>' +
+      '<span class="it"><i class="sw" style="background:var(--c-critico)"></i>Atenção e preenchimento</span></div>'
+    : '';
+  if(rank.length > 1)
+    barrasH($('#graf-rerros-plot'), rank.slice(0,12).map(o => ({
+      rot:siglaDe(o.u), v:o.t, vtxt:fmt(o.t), cor:'var(--c-critico)', tip:o.u + ' — total de ocorrências',
+      v2:o.erro, v2txt:fmt(o.erro), cor2:'var(--c-atraso)', tip2:o.u + ' — erros que precisam de correção'
+    })), {alvo: Math.min(320, Math.max(140, rank.length*30 + 16)), altMax:26, aria:'ocorrências por unidade'});
+
+  $('#rerros-corpo').innerHTML =
+    '<div class="nota-planilha">As colunas à direita reproduzem a linha da aba <b>HISTÓRICO DE PRAZOS</b> ' +
+    'exatamente como está preenchida, com o número da linha para você ir direto nela.</div>' +
+    '<div class="tabela-wrap"><table>' + colgroupCols(CAB_HIST, [104, 68, 92, 176, 320]) +
+    '<thead><tr class="orig-cab"><th class="cen col-fixa">Situação</th><th class="num">Linha</th>' +
+    '<th class="cen">Un.</th><th>Campo</th><th>O que está acontecendo</th>' + cabecalhoCols(CAB_HIST) +
+    '</tr></thead><tbody>' +
+    lista.map(p =>
+      '<tr><td class="cen col-fixa"><span class="badge ' + SEV_REP[p.sev].badge + '">' +
+        SEV_REP[p.sev].rot + '</span></td>' +
+      '<td class="num">' + fmt(p.linha) + '</td>' +
+      '<td class="cen"><span class="sg" style="margin:0" title="' + esc(p.unidade) + '">' + esc(p.sigla) + '</span></td>' +
+      '<td>' + esc(p.campo) + '</td>' +
+      '<td class="cel-desc">' + esc(p.detalhe) + '</td>' +
+      ((p.registro && p.registro._bruto) || [])
+        .map((v,k) => celulaVerbatim(v, null, classeColDe(CAB_HIST, k))).join('') +
+      '</tr>').join('') +
+    '</tbody></table></div>';
 }
 
 /* ------------------------------------------------------- registros */
@@ -4420,23 +4628,26 @@ function celulaVerbatim(v, termos, classe){
 }
 /* colunas que são texto longo demais para caber: mostram uma linha e reticências */
 const CORTAR_COL = new Set(['id']);
-const classeCol = k => {
-  const c = CABECALHO_PLANILHA[k];
+const classeColDe = (cab, k) => {
+  const c = cab[k];
   return c && CORTAR_COL.has(norm(c.rot)) ? 'corta' : '';
 };
-function cabecalhoPlanilha(){
-  return CABECALHO_PLANILHA.map(c =>
+const classeCol = k => classeColDe(CABECALHO_PLANILHA, k);
+function cabecalhoCols(cab){
+  return cab.map(c =>
     '<th title="Coluna ' + c.col + ' da planilha">' + esc(c.rot) +
     '<span class="col">coluna ' + c.col + '</span></th>').join('');
 }
+function cabecalhoPlanilha(){ return cabecalhoCols(CABECALHO_PLANILHA); }
 /* larguras declaradas: com table-layout:fixed o navegador não precisa medir célula por célula */
 const larguraCol = rot => Math.max(96, Math.min(260, String(rot).length * 7.6 + 34));
-function colgroupPlanilha(extras){
+function colgroupCols(cab, extras){
   return '<colgroup>' + (extras || []).map(w => '<col style="width:' + w + 'px">').join('') +
-    CABECALHO_PLANILHA.map(c => '<col style="width:' +
+    cab.map(c => '<col style="width:' +
       (CORTAR_COL.has(norm(c.rot)) ? 210 : Math.round(larguraCol(c.rot))) + 'px">').join('') +
     '</colgroup>';
 }
+function colgroupPlanilha(extras){ return colgroupCols(CABECALHO_PLANILHA, extras); }
 const celulasPlanilha = (r, termos) => (termos && termos.length)
   ? (r._bruto || []).map((v,k) => celulaVerbatim(v, termos, classeCol(k))).join('')
   : (r._brutoHtml || '');
@@ -5100,6 +5311,7 @@ document.addEventListener('click', e => { if(e.target.closest('[data-voltar]')) 
 $$('#diag-pop button').forEach(b => b.addEventListener('click', () => {
   $('#diag-pop').hidden = true;
   $('#b-diag').setAttribute('aria-expanded', 'false');
+  if(b.dataset.modo) MODO_DIAG_REP = b.dataset.modo;
   if(b.dataset.aba) trocarAba(b.dataset.aba);     // o item de saída não tem aba: quem trata é o data-voltar
 }));
 document.addEventListener('click', e => {
@@ -5152,6 +5364,17 @@ document.querySelector('#tab-runi tbody').addEventListener('click', e => {
   const m = FR_MULTI[0];
   if(m.lista) { pintarLista(m); rotuloMulti(m); }
   trocarAba('rregistros');
+});
+liga('#b-csv-rerros','click', () => {
+  const todos = diagnosticarRepac();
+  const lista = MODO_DIAG_REP === 'todos' ? todos : todos.filter(p => p.sev === MODO_DIAG_REP);
+  if(!lista.length) return;
+  baixarCSV({erro:'erros-historico-prazos', atencao:'atencao-historico-prazos',
+             branco:'preencher-historico-prazos', todos:'conferencia-historico-prazos'}[MODO_DIAG_REP],
+    ['Situação','Linha no histórico','Sigla','Unidade de saúde','Entrega','Campo','O que está acontecendo']
+      .concat(CAB_HIST.map(c => c.rot + ' (col ' + c.col + ')')),
+    lista.map(p => [SEV_REP[p.sev].rot, p.linha, p.sigla, p.unidade, p.descricao, p.campo, p.detalhe]
+      .concat((p.registro && p.registro._bruto) || [])));
 });
 liga('#b-csv-rep','click', () => {
   const lista = repFiltradas();
@@ -5352,7 +5575,8 @@ document.addEventListener('click', e => {
   const b = e.target.closest('[data-kpi]');
   if(!b) return;
   const k = b.dataset.kpi;
-  if(k.startsWith('area-')){ MODO_SEMAREA = k.slice(5); abaSemArea(); }
+  if(k.startsWith('rep-')){ MODO_DIAG_REP = k.slice(4); abaRepErros(); }
+  else if(k.startsWith('area-')){ MODO_SEMAREA = k.slice(5); abaSemArea(); }
   else { MODO_SEMDATA = k; abaSemData(); }
 });
 liga('#b-csv-semarea','click', () => {
