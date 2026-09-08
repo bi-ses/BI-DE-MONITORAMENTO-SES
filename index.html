@@ -1742,7 +1742,9 @@ async function carregarHistorico(forcar){
         : 'o navegador bloqueou a leitura da planilha completa — ela precisa estar compartilhada como "qualquer pessoa com o link".';
   }finally{
     clearTimeout(semResposta); HIST_VOO = false;
-    if(MODO_PAINEL === 'repac') desenhar();
+    /* a bandeirinha do histórico precisa aparecer assim que ele chega, mesmo com o painel
+       de entregas aberto — senão só depois de trocar de painel é que o número surge */
+    if(LINHAS.length){ if(MODO_PAINEL === 'repac') desenhar(); else atualizarDiagBadges(); }
   }
 }
 
@@ -2500,10 +2502,13 @@ function desenhar(){
   });
 }
 function atualizarDiagBadges(){
-  const problemas = diagnosticar();
+  /* a bandeirinha conta o que está na tela: com um filtro ligado, os números dela batem
+     com as listas que ela abre, que sempre trabalharam sobre o recorte */
+  const base = filtradas();
+  const problemas = problemasVisiveis();
   const nDiag = problemas.length;
-  const nSemData = LINHAS.filter(faltaPreenchimento).length;
-  const nSemArea = LINHAS.filter(r => semArea(r) && !r.concluido).length;
+  const nSemData = base.filter(faltaPreenchimento).length;
+  const nSemArea = base.filter(r => semArea(r) && !r.concluido).length;
   const bE = $('#diag-n-erros'), bS = $('#diag-n-semdata'), bA = $('#diag-n-semarea');
   if(bE){ bE.textContent = fmt(nDiag); bE.classList.toggle('zero', nDiag === 0); }
   if(bS){ bS.textContent = fmt(nSemData); bS.classList.toggle('zero', nSemData === 0); }
@@ -2524,13 +2529,13 @@ function atualizarDiagBadges(){
       : '';
   };
   pinta('#diag-top-erros', topo(problemas, p => p.unidade), 'Quem mais concentra');
-  pinta('#diag-top-semdata', topo(LINHAS.filter(faltaPreenchimento), r => r.unidade),
+  pinta('#diag-top-semdata', topo(base.filter(faltaPreenchimento), r => r.unidade),
         'Quem mais deixa em branco');
-  pinta('#diag-top-semarea', topo(LINHAS.filter(r => semArea(r) && !r.concluido), r => r.unidade),
+  pinta('#diag-top-semarea', topo(base.filter(r => semArea(r) && !r.concluido), r => r.unidade),
         'Quem mais deixa sem área');
 
   /* mesma bandeirinha, outro conjunto de contas quando o painel aberto é o de repactuações */
-  const probsRep = diagnosticarRepac();
+  const probsRep = problemasRepVisiveis();
   [['erro','#diag-n-rerro','#diag-top-rerro'], ['atencao','#diag-n-ratencao','#diag-top-ratencao'],
    ['branco','#diag-n-rbranco','#diag-top-rbranco']].forEach(([sev, idN, idTop]) => {
     const sub = probsRep.filter(p => p.sev === sev);
@@ -3914,9 +3919,14 @@ function abaRepGeral(dr){
   const mediana = medianaDe(ad.map(x => x.dFim));
   const maior = ad.length ? ad.reduce((a,b) => b.dFim > a.dFim ? b : a) : null;
   const semEfeito = dr.filter(x => x.mov === 'soIni' || x.mov === 'semMudanca').length;
+  const semComparar = dr.filter(x => x.mov === 'semAnterior' || x.mov === 'semAtual').length;
   const reinc = new Set(dr.filter(x => x.versoes > 1).map(x => x.id)).size;
   const antec = dr.filter(x => x.mov === 'antecipada').length;
-  const carteira = LINHAS.length;
+  /* com uma unidade escolhida no filtro, comparar as repactuações dela com a carteira da rede
+     inteira dá um percentual que não quer dizer nada: a base é a carteira daquela unidade */
+  const carteira = F.runi.length
+    ? LINHAS.filter(r => F.runi.includes(r.unidade)).length
+    : LINHAS.length;
 
   /* Quatro números, não seis: quantas remarcações houve, quanto custaram, qual o tamanho
      típico e qual o pior caso. Quem é a contratada está logo abaixo, no ranking; a
@@ -3929,11 +3939,19 @@ function abaRepGeral(dr){
               ' · ' + pc(ids.size, carteira) + ' da carteira'
             : 'nenhuma no recorte atual'],
     ['crit','Dias adiados', fmt(soma),
-      ad.length ? 'em ' + fmt(ad.length) + (ad.length === 1 ? ' adiamento' : ' adiamentos') : 'nenhum adiamento aqui'],
+      /* zero dias com repactuações registradas não é falha de leitura: é registro que não
+         mudou o término. O cartão diz qual dos dois casos é, em vez de deixar no ar. */
+      ad.length ? 'em ' + fmt(ad.length) + (ad.length === 1 ? ' adiamento' : ' adiamentos')
+      : semEfeito ? fmt(semEfeito) + (semEfeito === 1 ? ' remarcação não mexeu no término'
+                                                      : ' remarcações não mexeram no término')
+      : semComparar ? 'sem prazo anterior para comparar'
+      : total ? 'nenhuma remarcação empurrou a entrega' : 'nada no recorte atual'],
     ['warn','Adiamento médio', ad.length ? fmt(media) + ' d' : '—',
       ad.length ? 'mediana de ' + fmt(mediana) + ' dias' : 'sem adiamento para calcular'],
     ['crit','Maior adiamento', maior ? fmt(maior.dFim) + ' d' : '—',
-      maior ? dicaRep(maior) : 'nenhum prazo foi empurrado']
+      maior ? dicaRep(maior)
+      : semEfeito || semComparar ? 'confira essas linhas na bandeirinha ⚑'
+      : 'nenhum prazo foi empurrado']
   ].map(cartao).join('');
 
   /* 1. o que a repactuação fez com a data de entrega */
@@ -3941,6 +3959,7 @@ function abaRepGeral(dr){
   $('#rep-sub-pizza').textContent = total
     ? fmt(ad.length) + (ad.length === 1 ? ' adiou' : ' adiaram') + ' a entrega' +
       (semEfeito ? ' · ' + fmt(semEfeito) + ' sem mexer no término' : '') +
+      (semComparar ? ' · ' + fmt(semComparar) + ' sem prazo para comparar' : '') +
       (reinc ? ' · ' + fmt(reinc) + (reinc === 1 ? ' remarcada duas vezes' : ' remarcadas duas vezes') : '')
     : 'Nada no recorte atual';
   pizza($('#rep-pizza'), segs, total, 'repactuações');
@@ -4241,20 +4260,34 @@ function diagnosticarRepac(){
   return probs;
 }
 const ORDEM_SEV = {erro:0, atencao:1, branco:2};
-const contaSev = sev => diagnosticarRepac().filter(p => p.sev === sev).length;
+/* A bandeirinha fala do que está na tela. Com um filtro de unidade ligado, contar as
+   ocorrências das outras seria responder uma pergunta que ninguém fez — e foi exatamente
+   isso que apareceu como "está contando de outras unidades". */
+const recorteRepAtivo = () => F.runi.length || F.rmot.length || F.rcon.length ||
+                              F.rmov.length || F.rbus;
+function problemasRepVisiveis(){
+  const todos = diagnosticarRepac();
+  if(!recorteRepAtivo()) return todos;
+  const alvo = new Set(repFiltradas().map(x => x.linha));
+  return todos.filter(p => alvo.has(p.linha));
+}
 
 function abaRepErros(){
-  const todos = diagnosticarRepac();
+  const todos = problemasRepVisiveis();
   const modo = MODO_DIAG_REP;
   const lista = modo === 'todos' ? todos : todos.filter(p => p.sev === modo);
   const n = s => todos.filter(p => p.sev === s).length;
   const linhasComProblema = new Set(todos.map(p => p.linha)).size;
+  const noRecorte = recorteRepAtivo();
+  const universo = noRecorte ? repFiltradas().length : REPAC.length + REPAC_FORA.length;
 
   $('#sub-rerros').textContent = todos.length
     ? plural(todos.length, 'ocorrência', 'ocorrências') + ' em ' +
       plural(linhasComProblema, 'linha do histórico', 'linhas do histórico') +
-      ', de ' + fmt(REPAC.length + REPAC_FORA.length) + ' registradas'
-    : 'Verificação automática sobre as ' + fmt(REPAC.length) + ' repactuações da planilha';
+      ', de ' + fmt(universo) + (noRecorte ? ' no recorte atual' : ' registradas') +
+      (noRecorte ? ' · a planilha inteira tem ' + fmt(diagnosticarRepac().length) : '')
+    : 'Verificação automática sobre ' + plural(universo, 'repactuação', 'repactuações') +
+      (noRecorte ? ' do recorte atual' : ' da planilha');
 
   const cartaoDiag = (chave, cor, rot, num, sub) => cartao([cor, rot, fmt(num), sub,
     {id:'rep-' + chave, ativo: modo === chave, dica:'Ver só ' + rot.toLowerCase()}]);
@@ -4271,12 +4304,15 @@ function abaRepErros(){
       '<div style="padding:46px 24px;text-align:center;color:var(--ink-2)">' +
       '<div style="font-size:34px;line-height:1;margin-bottom:10px">✓</div>' +
       '<div style="font-weight:700;color:var(--navy);font-size:15px;margin-bottom:6px">' +
-        (todos.length ? 'Nada nesta lista' : 'Nenhum problema encontrado') + '</div>' +
+        (todos.length ? 'Nada nesta lista'
+                      : noRecorte ? 'Nada aqui dentro do recorte atual' : 'Nenhum problema encontrado') + '</div>' +
       '<div style="font-size:12.5px;max-width:520px;margin:0 auto">' +
         (todos.length
           ? 'Escolha outra lista nos cartões acima.'
-          : 'Conferi as datas, a ordem entre elas, o encontro de cada linha com a carteira, ' +
-            'as duplicidades e os campos de motivo e contratada — está tudo preenchido e coerente.') +
+          : noRecorte
+            ? 'Isto vale só para o recorte de filtros aplicado agora. Limpe os filtros para conferir o histórico inteiro.'
+            : 'Conferi as datas, a ordem entre elas, o encontro de cada linha com a carteira, ' +
+              'as duplicidades e os campos de motivo e contratada — está tudo preenchido e coerente.') +
       '</div></div>';
     return;
   }
@@ -5366,7 +5402,7 @@ document.querySelector('#tab-runi tbody').addEventListener('click', e => {
   trocarAba('rregistros');
 });
 liga('#b-csv-rerros','click', () => {
-  const todos = diagnosticarRepac();
+  const todos = problemasRepVisiveis();
   const lista = MODO_DIAG_REP === 'todos' ? todos : todos.filter(p => p.sev === MODO_DIAG_REP);
   if(!lista.length) return;
   baixarCSV({erro:'erros-historico-prazos', atencao:'atencao-historico-prazos',
