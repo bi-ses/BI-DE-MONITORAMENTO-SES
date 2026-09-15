@@ -1220,11 +1220,24 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
    ========================================================================= */
 
 const LIMITE_TABELA = 2000;
-const CFG_KEY = 'ses-pe-painel-cfg-v1';
+/* Cada BI tem a sua própria chave de configuração. Os dois painéis moram no mesmo
+   domínio do GitHub Pages e o navegador guarda o armazenamento por domínio, não por
+   pasta: com uma chave só, o link salvo num deles sobrescrevia o do outro. */
+const CFG_KEY = 'ses-pe-entregas-cfg-v1';
+const CFG_KEY_ANTIGA = 'ses-pe-painel-cfg-v1';
 const PADRAO = {url:'https://docs.google.com/spreadsheets/d/1DlqVaurOsfOO9-JRUV8myuEp-NlkiZra/edit?gid=625865000#gid=625865000', intervalo:60, aba:'', urlHist:''};
 const cfg = Object.assign({}, PADRAO, lerCfg());
 const SEM_ORIGEM = location.protocol === 'file:';
-function lerCfg(){ try{ return JSON.parse(localStorage.getItem(CFG_KEY) || '{}') || {}; }catch(e){ return {}; } }
+function idPlanilha(u){ const m = String(u || '').match(/\/spreadsheets\/d\/([\w-]{20,})/); return m ? m[1] : ''; }
+function lerCfg(){
+  try{
+    const atual = localStorage.getItem(CFG_KEY);
+    if(atual) return JSON.parse(atual) || {};
+    /* configuração da chave antiga só vale se apontar para a planilha deste painel */
+    const velha = JSON.parse(localStorage.getItem(CFG_KEY_ANTIGA) || '{}') || {};
+    return idPlanilha(velha.url) === idPlanilha(PADRAO.url) ? velha : {};
+  }catch(e){ return {}; }
+}
 function salvarCfg(){ try{ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }catch(e){} }
 
 const $  = s => document.querySelector(s);
@@ -1462,7 +1475,8 @@ function montarBase(grade){
   };
   let hi = achaLinha(l => l.some(c => c.includes('unidade de saude')) && l.some(c => c.includes('termino previsto')));
   if(hi < 0) hi = achaLinha(l => l.some(c => c.includes('unidade de saude')));
-  if(hi < 0) throw new Error('não encontrei o cabeçalho — a aba precisa ter uma coluna "Unidade de Saúde" e outra "Término Previsto".');
+  if(hi < 0) throw new Error('não encontrei o cabeçalho — a aba precisa ter uma coluna "Unidade de Saúde" e outra ' +
+    '"Término Previsto". Confira o link em Configurar: pode ser a planilha do outro painel.');
 
   const cab = (grade[hi] || []).map(norm);
   // guarda os rótulos originais para poder mostrar a linha exatamente como está na planilha
