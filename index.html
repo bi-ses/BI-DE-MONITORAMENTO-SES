@@ -274,8 +274,6 @@ td.cen{text-align:center;white-space:nowrap}
 .b-ser{background:#fce7dc;color:#8a3f18}  .b-info{background:#e3edfb;color:#164a86}
 .b-good{background:#dcf3dc;color:#0a5c0a} .b-mut{background:#edf0f4;color:#48546a}
 /* deslocamento de prazo: o sinal precisa ser lido antes do número */
-td.delta{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700}
-td.delta.mais{color:var(--t-atraso)} td.delta.menos{color:var(--t-conc)} td.delta.igual{color:var(--muted);font-weight:600}
 .prazo-cel{white-space:nowrap;font-variant-numeric:tabular-nums}
 .prazo-cel .ate{color:var(--muted);padding:0 3px}
 .rep-linha{cursor:default}
@@ -957,25 +955,22 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
           </div>
         </div>
         <div class="card g7">
-          <div class="card-h"><div class="card-t">Maiores adiamentos</div>
+          <div class="card-h"><div class="card-t" id="rep-t-top">Quem mais repactua</div>
             <div class="card-s" id="rep-sub-top">—</div></div>
           <div class="plot" id="rep-top"></div>
         </div>
       </div>
       <div class="card" style="margin-bottom:14px">
-        <div class="card-h"><div class="card-t" id="rc-titulo">Ranking das contratadas</div>
+        <div class="card-h"><div class="card-t" id="rc-titulo">Quem remarca e o que é remarcado</div>
           <div class="card-s" id="rc-sub">—</div></div>
         <div class="duo">
           <div class="meia">
-            <div class="meia-t">Quem mais remarca prazo</div>
+            <div class="meia-t">Contratada</div>
             <div class="plot" id="rc-qtd"></div>
-            <div class="leg"><span class="it"><i class="sw" style="background:var(--c-prazo)"></i>Repactuações</span>
-              <span class="it"><i class="sw" style="background:var(--c-atraso)"></i>Das quais adiaram a entrega</span></div>
           </div>
           <div class="meia">
-            <div class="meia-t">Quem mais custa em dias</div>
-            <div class="plot" id="rc-dias"></div>
-            <div class="leg"><span class="it"><i class="sw" style="background:var(--c-atraso)"></i>Dias somados de adiamento</span></div>
+            <div class="meia-t">Tipo de entrega</div>
+            <div class="plot" id="rm-tipo"></div>
           </div>
         </div>
       </div>
@@ -996,20 +991,6 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
           <span class="it"><i class="sw" style="background:var(--navy)"></i>Percentual acumulado</span>
           <span class="it">Tracejado: corte de 80%</span></div>
       </div>
-      <div class="grade">
-        <div class="card g6">
-          <div class="card-h"><div class="card-t">Motivo por dias adiados</div>
-            <div class="card-s" id="rm-sub-dias">—</div></div>
-          <div class="plot" id="rm-dias"></div>
-        </div>
-        <div class="card g6">
-          <div class="card-h"><div class="card-t">Tipo de entrega</div>
-            <div class="card-s" id="rm-sub-tipo">—</div></div>
-          <div class="plot" id="rm-tipo"></div>
-          <div class="leg"><span class="it"><i class="sw" style="background:var(--c-prazo)"></i>Repactuações</span>
-            <span class="it"><i class="sw" style="background:var(--c-atraso)"></i>Das quais adiaram a entrega</span></div>
-        </div>
-      </div>
       <div class="card">
         <div class="card-h"><div class="card-t" id="rm-t-matriz">Motivo por unidade de saúde</div>
           <div class="card-s" id="rm-sub-matriz">—</div></div>
@@ -1022,8 +1003,6 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
         <div class="card-h"><div class="card-t">Repactuações por unidade de saúde</div>
           <div class="card-s" id="ru-sub-graf">—</div></div>
         <div class="plot" id="ru-graf"></div>
-        <div class="leg"><span class="it"><i class="sw" style="background:var(--c-prazo)"></i>Repactuações registradas</span>
-          <span class="it"><i class="sw" style="background:var(--c-atraso)"></i>Das quais adiaram a entrega</span></div>
       </div>
       <div class="card">
         <div class="card-h"><div class="card-t">Quadro por unidade</div>
@@ -3686,7 +3665,7 @@ const PALETA_MOTIVO = ['var(--c-atraso)','var(--c-prazo)','var(--c-fiscal)','var
 let REPAC = [], REPAC_FORA = [], COR_MOTIVO = {}, CAB_HIST = [];
 let HIST_GRADE = null, HIST_ERRO = '', HIST_LIDO = 0, HIST_VOO = false;
 let MODO_PAINEL = 'entregas', ABA_ENTREGAS = 'geral', ABA_REPAC = 'rgeral';
-let ordemRep = {col:'dFim', dir:-1}, ordemRepUni = {col:'n', dir:-1};
+let ordemRep = {col:'linha', dir:1}, ordemRepUni = {col:'n', dir:-1};
 const NOME_ENTREGAS = 'Painel de Monitoramento das Entregas';
 const NOME_REPAC = 'Controle de Repactuações';
 const abaRepac = a => a === 'rgeral' || a === 'rmotivos' || a === 'runidades' ||
@@ -3843,9 +3822,6 @@ const rotRep = x => (ESCOPO() ? '' : siglaDe(x.unidade) + ' · ') +
                     (x.descricao || x.setor || 'entrega sem descrição');
 const dicaRep = x => (ESCOPO() ? '' : nomeCurto(x.unidade) + ' — ') +
                      (x.descricao || x.setor || 'entrega sem descrição');
-const deltaTxt = x => x.dFim == null ? '—' : x.dFim > 0 ? '+' + fmt(x.dFim) + ' d'
-                    : x.dFim < 0 ? '−' + fmt(-x.dFim) + ' d' : '0 d';
-const classeDelta = x => x.dFim == null ? 'igual' : x.dFim > 0 ? 'mais' : x.dFim < 0 ? 'menos' : 'igual';
 const prazoTxt = (a,b) => (a ? dbr(a) : '—') + ' → ' + (b ? dbr(b) : '—');
 const prazoCel = (a,b) => '<td class="prazo-cel">' + (a ? dbr(a) : '—') +
   '<span class="ate">→</span>' + (b ? dbr(b) : '—') + '</td>';
@@ -3931,7 +3907,6 @@ function abaRepGeral(dr){
   const soma = ad.reduce((s,x) => s + x.dFim, 0);
   const media = ad.length ? Math.round(soma / ad.length) : 0;
   const mediana = medianaDe(ad.map(x => x.dFim));
-  const maior = ad.length ? ad.reduce((a,b) => b.dFim > a.dFim ? b : a) : null;
   const semEfeito = dr.filter(x => x.mov === 'soIni' || x.mov === 'semMudanca').length;
   const semComparar = dr.filter(x => x.mov === 'semAnterior' || x.mov === 'semAtual').length;
   const reinc = new Set(dr.filter(x => x.versoes > 1).map(x => x.id)).size;
@@ -3942,30 +3917,44 @@ function abaRepGeral(dr){
     ? LINHAS.filter(r => F.runi.includes(r.unidade)).length
     : LINHAS.length;
 
-  /* Quatro números, não seis: quantas remarcações houve, quanto custaram, qual o tamanho
-     típico e qual o pior caso. Quem é a contratada está logo abaixo, no ranking; a
-     reincidência entra na leitura do gráfico de efeito. Cartão com legenda cortada não
-     informa nada — por isso as frases aqui cabem inteiras. */
+  /* Esta aba responde COM QUE FREQUÊNCIA o prazo é remarcado — não quantos dias se
+     perderam no pior caso. Por isso os cartões são três de quantidade e um de dias: a
+     soma de dias adiados e o maior adiamento saíram, porque um número grande ali dizia
+     respeito a uma remarcação isolada e era lido como se fosse o atraso da carteira. */
   const rankCon = rankContratadas(dr);
+  const porUni = contarRep(dr, 'unidade');
+  const rankUni = Object.entries(porUni).map(([u,o]) => ({chave:u, n:o.n, ad:o.ad, dias:o.dias,
+      rot:siglaDe(u), nome:nomeCurto(u)}))
+    .sort((a,b) => b.n - a.n || a.nome.localeCompare(b.nome,'pt-BR'));
+  const porInterv = contarRep(dr, 'id');
+  const umaDe = {};
+  dr.forEach(x => { if(!umaDe[x.id]) umaDe[x.id] = x; });
+  const rankInterv = Object.entries(porInterv).map(([id,o]) => ({chave:id, n:o.n, ad:o.ad, dias:o.dias,
+      rot:rotRep(umaDe[id]), nome:dicaRep(umaDe[id])}))
+    .sort((a,b) => b.n - a.n || a.nome.localeCompare(b.nome,'pt-BR'));
+  /* numa conta de hospital o ranking de hospitais tem uma barra só: ali a pergunta
+     equivalente é quais intervenções daquela casa são remarcadas com mais frequência */
+  const rankTop = ESCOPO() ? rankInterv : rankUni;
+  const campeao = rankTop[0] || null;
+
   $('#rep-kpis').innerHTML = [
     ['info','Repactuações', fmt(total),
-      total ? 'em ' + fmt(ids.size) + (ids.size === 1 ? ' intervenção' : ' intervenções') +
-              ' · ' + pc(ids.size, carteira) + ' da carteira'
-            : 'nenhuma no recorte atual'],
-    ['crit','Dias adiados', fmt(soma),
-      /* zero dias com repactuações registradas não é falha de leitura: é registro que não
-         mudou o término. O cartão diz qual dos dois casos é, em vez de deixar no ar. */
-      ad.length ? 'em ' + fmt(ad.length) + (ad.length === 1 ? ' adiamento' : ' adiamentos')
-      : semEfeito ? fmt(semEfeito) + (semEfeito === 1 ? ' remarcação não mexeu no término'
-                                                      : ' remarcações não mexeram no término')
+      !total ? 'nenhuma no recorte atual'
+      : ad.length ? fmt(ad.length) + (ad.length === 1 ? ' adiou a entrega' : ' adiaram a entrega')
+      : semEfeito ? fmt(semEfeito) + (semEfeito === 1 ? ' não mexeu no término' : ' não mexeram no término')
       : semComparar ? 'sem prazo anterior para comparar'
-      : total ? 'nenhuma remarcação empurrou a entrega' : 'nada no recorte atual'],
+      : 'nenhuma empurrou a entrega'],
+    ['info','Intervenções repactuadas', fmt(ids.size) +
+        (carteira ? '<u>' + pc(ids.size, carteira) + ' da carteira</u>' : ''),
+      total ? (reinc ? fmt(reinc) + (reinc === 1 ? ' remarcada mais de uma vez'
+                                                : ' remarcadas mais de uma vez')
+                     : 'cada uma remarcada uma única vez')
+            : 'nada no recorte atual'],
     ['warn','Adiamento médio', ad.length ? fmt(media) + ' d' : '—',
-      ad.length ? 'mediana de ' + fmt(mediana) + ' dias' : 'sem adiamento para calcular'],
-    ['crit','Maior adiamento', maior ? fmt(maior.dFim) + ' d' : '—',
-      maior ? dicaRep(maior)
-      : semEfeito || semComparar ? 'confira essas linhas na bandeirinha ⚑'
-      : 'nenhum prazo foi empurrado']
+      ad.length ? 'por adiamento · mediana de ' + fmt(mediana) + ' d' : 'sem adiamento para calcular'],
+    ['crit', ESCOPO() ? 'Intervenção que mais repactua' : 'Unidade que mais repactua',
+      campeao ? fmt(campeao.n) + '×' : '—',
+      campeao ? campeao.nome : 'nada no recorte atual']
   ].map(cartao).join('');
 
   /* 1. o que a repactuação fez com a data de entrega */
@@ -3981,18 +3970,33 @@ function abaRepGeral(dr){
     '<span class="it"><i class="sw" style="background:' + g.cor + '"></i><span>' + esc(g.nome) +
     '</span><b>' + fmt(g.v) + '</b><span class="pc">' + pc(g.v, total) + '</span></span>').join('');
 
-  /* 2. as entregas que mais recuaram */
-  const top = ad.slice().sort((a,b) => b.dFim - a.dFim).slice(0,9);
+  /* 2. quem remarca com mais frequência */
+  const top = rankTop.slice(0, 9);
+  const tit = $('#rep-t-top');
+  if(tit) tit.textContent = ESCOPO() ? 'Intervenções mais repactuadas' : 'Hospitais que mais repactuam';
   $('#rep-sub-top').textContent = top.length
-    ? 'Quantos dias cada entrega recuou' + avisoCorte(top.length, ad.length, 'adiamentos')
-    : 'Nenhuma entrega adiada no recorte atual';
-  barrasH($('#rep-top'), top.map(x => ({
-    rot:rotRep(x), v:x.dFim, vtxt:fmt(x.dFim) + ' d', cor:'var(--c-atraso)',
-    tip:dicaRep(x) + ' — de ' + dbr(x.fimAnt) + ' para ' + dbr(x.fimNovo)
-  })), {alvo: Math.max(150, Math.min(330, top.length*34 + 20)), altMax:26, aria:'maiores adiamentos'});
+    ? 'Quantas vezes o prazo foi remarcado em cada ' + (ESCOPO() ? 'intervenção' : 'unidade') +
+      avisoCorte(top.length, rankTop.length, ESCOPO() ? 'intervenções' : 'unidades')
+    : 'Nada no recorte atual';
+  barrasH($('#rep-top'), top.map(o => ({
+    rot:o.rot, v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)',
+    tip:o.nome + ' — ' + plRep(o.n) +
+        (o.ad ? ' · ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') + ' a entrega, ' + plDias(o.dias)
+              : ' · nenhuma adiou a entrega')
+  })), {alvo: Math.max(150, Math.min(330, top.length*34 + 20)), altMax:26,
+        aria:ESCOPO() ? 'intervenções mais repactuadas' : 'repactuações por unidade de saúde'});
 
-  /* 3. ranking das contratadas */
+  /* 3. quem remarca (contratada) e o que é remarcado (tipo de entrega) */
   pintarRankingContratadas(rankCon);
+  const tip = contarRep(dr, x => x.tipo || 'SEM TIPO');
+  const rankTip = Object.entries(tip).sort((a,b) => b[1].n - a[1].n || a[0].localeCompare(b[0],'pt-BR'));
+  barrasH($('#rm-tipo'), rankTip.map(([k,o]) => ({
+    rot:k, v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)',
+    tip:k + ' — ' + plRep(o.n) + ' em ' + fmt(o.ids.size) +
+        (o.ids.size === 1 ? ' intervenção' : ' intervenções') +
+        (o.ad ? ' · ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') + ' a entrega, ' + plDias(o.dias)
+              : ' · nenhuma adiou a entrega')
+  })), {alvo: alturaRank(rankTip.length), altMax:30, aria:'repactuações por tipo de entrega'});
 
   /* 4. adiantou de alguma coisa? onde essas entregas estão hoje */
   const cont = GRUPOS.map(g => Object.assign({}, g,
@@ -4026,40 +4030,31 @@ function rankContratadas(lista){
             motivo: pred ? pred[0] : '—', motivoN: pred ? pred[1] : 0};
   });
 }
+const alturaRank = n => Math.max(150, Math.min(360, Math.max(1,n)*44 + 24));
 function pintarRankingContratadas(rank){
   const porN = rank.slice().sort((a,b) => b.n - a.n || b.dias - a.dias);
-  const porD = rank.slice().filter(o => o.dias > 0).sort((a,b) => b.dias - a.dias || b.n - a.n);
-  const maisRemarca = porN[0], maisAdia = porD[0];
+  const maisRemarca = porN[0];
   $('#rc-sub').textContent = rank.length
     ? (rank.length === 1
         ? 'Uma única contratada no recorte: ' + rank[0].nome
         : fmt(rank.length) + ' contratadas · quem mais remarca: ' + maisRemarca.nome +
-          ' (' + plRep(maisRemarca.n) + ')' +
-          (maisAdia ? ' · quem mais custa prazo: ' + maisAdia.nome + ' (' + plDias(maisAdia.dias) + ')' : ''))
+          ' (' + plRep(maisRemarca.n) + ')')
     : 'Nenhuma contratada no recorte atual';
 
-  const alturaDe = n => Math.max(150, Math.min(360, n*44 + 24));
+  /* as duas metades do cartão contam a mesma coisa — repactuações — vistas por quem
+     executa e por que tipo de serviço é. Mesma escala de altura, para as barras de um
+     lado e do outro ficarem alinhadas. */
   barrasH($('#rc-qtd'), porN.slice(0,10).map(o => ({
     rot:o.nome, v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)',
     tip:o.nome + ' — ' + plRep(o.n) + ' em ' + fmt(o.ids) +
-        (o.ids === 1 ? ' intervenção' : ' intervenções') + ' · motivo mais frequente: ' + o.motivo,
-    v2:o.ad, v2txt:fmt(o.ad) + ' (' + pc(o.ad, o.n) + ')', cor2:'var(--c-atraso)',
-    tip2:o.nome + ' — ' + fmt(o.ad) + (o.ad === 1 ? ' remarcação adiou' : ' remarcações adiaram') + ' a entrega'
-  })), {alvo: alturaDe(porN.length), altMax:30, aria:'repactuações por contratada'});
-
-  barrasH($('#rc-dias'), porD.slice(0,10).map(o => ({
-    rot:o.nome, v:o.dias, vtxt:fmt(o.dias) + ' d', cor:'var(--c-atraso)',
-    tip:o.nome + ' — ' + plDias(o.dias) + ' somados · média de ' + plDias(o.media) +
-        ' por adiamento · maior: ' + plDias(o.maior)
-  })), {alvo: alturaDe(Math.max(1, porD.length)), altMax:30, aria:'dias adiados por contratada'});
+        (o.ids === 1 ? ' intervenção' : ' intervenções') + ' · motivo mais frequente: ' + o.motivo
+  })), {alvo: alturaRank(porN.length), altMax:30, aria:'repactuações por contratada'});
 }
 
 /* ------------------------------------------------------- motivos e responsáveis */
 function abaRepMotivos(dr){
   const mot = contarRep(dr, 'motivo');
   const porQtd = Object.entries(mot).sort((a,b) => b[1].n - a[1].n || a[0].localeCompare(b[0],'pt-BR'));
-  const porDias = Object.entries(mot).filter(([,o]) => o.dias > 0).sort((a,b) => b[1].dias - a[1].dias);
-  const totalDias = Object.values(mot).reduce((s,o) => s + o.dias, 0);
 
   /* Pareto: as barras vêm do maior para o menor e a linha mostra onde param os poucos
      motivos que respondem por 80% das remarcações — é neles que a ação rende mais. */
@@ -4075,25 +4070,6 @@ function abaRepMotivos(dr){
     tip:k + ' — ' + plRep(o.n) + ' em ' + o.ids.size + (o.ids.size === 1 ? ' intervenção' : ' intervenções') +
         (o.dias ? ' · ' + plDias(o.dias) + ' adiados' : '')
   })), {altura:330, aria:'Pareto de repactuações por motivo'});
-
-  $('#rm-sub-dias').textContent = totalDias
-    ? plDias(totalDias) + ' de adiamento no recorte — quanto cada motivo custou'
-    : 'Nenhum adiamento no recorte atual';
-  barrasH($('#rm-dias'), porDias.map(([k,o]) => ({
-    rot:k, v:o.dias, vtxt:fmt(o.dias) + ' d', cor:COR_MOTIVO[k] || 'var(--c-atraso)',
-    tip:k + ' — ' + plDias(o.dias) + ' em ' + fmt(o.ad) + (o.ad === 1 ? ' adiamento' : ' adiamentos') +
-        ' · maior: ' + plDias(o.maior)
-  })), {alvo: Math.max(150, Math.min(340, Math.max(1,porDias.length)*40 + 20)), altMax:32,
-        aria:'dias adiados por motivo'});
-
-  const tip = contarRep(dr, x => x.tipo || 'SEM TIPO');
-  const rankTip = Object.entries(tip).sort((a,b) => b[1].n - a[1].n || a[0].localeCompare(b[0],'pt-BR'));
-  $('#rm-sub-tipo').textContent = rankTip.length ? 'Que tipo de serviço mais remarca prazo' : 'Nada no recorte atual';
-  barrasH($('#rm-tipo'), rankTip.map(([k,o]) => ({
-    rot:k, v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)', tip:k + ' — ' + plRep(o.n),
-    v2:o.ad, v2txt:fmt(o.ad), cor2:'var(--c-atraso)',
-    tip2:k + ' — ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') + ' a entrega, ' + plDias(o.dias)
-  })), {alvo: Math.max(150, Math.min(320, rankTip.length*44 + 20)), altMax:34, aria:'repactuações por tipo de entrega'});
 
   /* cruzamento do motivo com quem o painel tem para cruzar: as unidades na visão da rede,
      as contratadas quando a conta enxerga uma unidade só */
@@ -4134,7 +4110,7 @@ function abaRepMotivos(dr){
 const COL_RUNI = [
   ['unidade','Unidade de saúde',''], ['n','Repactuações','num'], ['ids','Intervenções','num'],
   ['ad','Adiaram a entrega','num'], ['dias','Dias adiados','num'],
-  ['media','Adiamento médio','num'], ['maior','Maior adiamento','num'], ['motivo','Motivo predominante','']
+  ['media','Adiamento médio','num'], ['motivo','Motivo predominante','']
 ];
 function abaRepUnidades(dr){
   const m = contarRep(dr, 'unidade');
@@ -4161,10 +4137,10 @@ function abaRepUnidades(dr){
     : 'Nada no recorte atual';
   barrasH($('#ru-graf'), porN.slice(0,12).map(o => ({
     rot:siglaDe(o.unidade), v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)',
-    tip:nomeCurto(o.unidade) + ' — ' + plRep(o.n),
-    v2:o.ad, v2txt:fmt(o.ad), cor2:'var(--c-atraso)',
-    tip2:nomeCurto(o.unidade) + ' — ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') +
-         ' a entrega, ' + plDias(o.dias)
+    tip:nomeCurto(o.unidade) + ' — ' + plRep(o.n) + ' em ' + fmt(o.ids) +
+        (o.ids === 1 ? ' intervenção' : ' intervenções') +
+        (o.ad ? ' · ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') + ' a entrega, ' + plDias(o.dias)
+              : ' · nenhuma adiou a entrega')
   })), {alvo: Math.max(150, Math.min(360, porN.length*38 + 20)), altMax:30, aria:'repactuações por unidade'});
 
   document.querySelector('#tab-runi thead tr').innerHTML = cabecalho(COL_RUNI, ordemRepUni);
@@ -4178,7 +4154,6 @@ function abaRepUnidades(dr){
     '<td class="num"><b>' + fmt(o.n) + '</b></td><td class="num">' + fmt(o.ids) + '</td>' +
     cel(o.ad, 'var(--t-atraso)') + cel(o.dias, 'var(--t-atraso)') +
     '<td class="num">' + (o.ad ? fmt(o.media) + ' d' : '—') + '</td>' +
-    '<td class="num">' + (o.maior ? fmt(o.maior) + ' d' : '—') + '</td>' +
     '<td><span style="color:' + (COR_MOTIVO[o.motivo] || 'var(--ink-2)') + ';font-weight:600">' +
       esc(o.motivo) + '</span>' + (o.motivoN ? ' <span style="color:var(--muted)">· ' + fmt(o.motivoN) + '</span>' : '') +
     '</td></tr>').join('') +
@@ -4187,7 +4162,7 @@ function abaRepUnidades(dr){
       '<td class="num">' + fmt(soma.n) + '</td><td class="num">' + fmt(soma.ids) + '</td>' +
       '<td class="num">' + fmt(soma.ad) + '</td><td class="num">' + fmt(soma.dias) + '</td>' +
       '<td class="num">' + (soma.ad ? fmt(Math.round(soma.dias / soma.ad)) + ' d' : '—') + '</td>' +
-      '<td class="num">' + (soma.maior ? fmt(soma.maior) + ' d' : '—') + '</td><td></td></tr>' : '');
+      '<td></td></tr>' : '');
 }
 
 /* ------------------------------------------------------- conferência do histórico
@@ -4375,7 +4350,7 @@ function abaRepErros(){
 
 /* ------------------------------------------------------- registros */
 const COL_REP = [
-  ['mov','Efeito','cen'], ['dFim','Deslocamento','num'], ['unidade','Un.','cen'],
+  ['mov','Efeito','cen'], ['unidade','Un.','cen'],
   ['descricao','Entrega',''], ['setor','Pavimento / setor',''],
   ['contratada','Contratada','col-con'], ['fimAnt','Prazo anterior',''], ['fimNovo','Prazo depois',''],
   ['motivo','Motivo','col-mot'], ['ordem','Versão','num'], ['status','Situação hoje','cen'],
@@ -4399,16 +4374,15 @@ function abaRepRegistros(dr){
     }
     return ((a[c] || 0) - (b[c] || 0)) * dir || b.adiamento - a.adiamento;
   });
-  const ad = lista.filter(x => x.mov === 'adiada');
+  /* o total de dias saiu junto com a coluna de deslocamento: anunciar uma soma de dias
+     sobre uma tabela que não mostra dias deixa o número sem onde ser conferido */
   $('#rr-sub').textContent = lista.length
-    ? plRep(lista.length) + ' · ' + fmt(new Set(lista.map(x => x.id)).size) + ' intervenções · ' +
-      plDias(ad.reduce((s,x) => s + x.dFim, 0)) + ' adiados'
+    ? plRep(lista.length) + ' · ' + plural(new Set(lista.map(x => x.id)).size, 'intervenção', 'intervenções')
     : 'Nenhum registro no recorte atual';
   document.querySelector('#tab-rep thead tr').innerHTML = cabecalho(COL_REP, ordemRep);
   document.querySelector('#tab-rep tbody').innerHTML = lista.length ? lista.map(x =>
     '<tr class="rep-linha">' +
     '<td class="cen"><span class="badge ' + MOV[x.mov].sel + '">' + esc(MOV[x.mov].rot) + '</span></td>' +
-    '<td class="delta ' + classeDelta(x) + '">' + deltaTxt(x) + '</td>' +
     '<td class="cen"><span class="sg" title="' + esc(x.unidade) + '">' + esc(siglaDe(x.unidade)) + '</span></td>' +
     '<td class="cel-desc"><span title="' + esc((x.descricao || '') + (x.tipo ? ' · ' + x.tipo : '')) + '">' +
       esc(x.descricao || '—') + '</span></td>' +
@@ -4424,8 +4398,8 @@ function abaRepRegistros(dr){
   $('#rr-nota').innerHTML = 'Cada linha é <b>uma remarcação</b>, não uma entrega: quando o prazo de uma ' +
     'mesma intervenção foi remarcado duas vezes, ela aparece duas vezes, e a coluna <b>Versão</b> diz qual ' +
     'delas é. <b>Prazo anterior</b> é o que estava valendo antes; <b>Prazo depois</b> é o que passou a valer — ' +
-    'na última versão de cada intervenção, o prazo que está hoje na carteira. O <b>Deslocamento</b> compara ' +
-    'apenas os términos. <b>Linha</b> é a linha da aba HISTÓRICO DE PRAZOS, para ir direto nela na planilha.';
+    'na última versão de cada intervenção, o prazo que está hoje na carteira. <b>Linha</b> é a linha da aba ' +
+    'HISTÓRICO DE PRAZOS, para ir direto nela na planilha. Clique num cabeçalho para reordenar.';
 }
 
 /* --- mapa --- */
