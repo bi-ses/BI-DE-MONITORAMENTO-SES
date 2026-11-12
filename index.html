@@ -362,7 +362,13 @@ tbody tr.total-linha td{background:#eef2f8;font-weight:700;color:var(--navy);
 .g-sg{font-size:10px;font-weight:700;fill:var(--navy)}
 .g-zebra{fill:#f7f9fb}
 .g-hoje{stroke:#d03b3b;stroke-width:1.5;stroke-dasharray:4 3}
-.pizza-wrap{display:flex;gap:20px;align-items:center;flex-wrap:wrap;padding:14px 18px 16px}
+/* o cartão da pizza divide a linha com um gráfico alto: sem isto o anel ficava colado no
+   topo e sobrava meia tela vazia embaixo. Vira coluna, e o conteúdo centra na altura. */
+.card.quadro-pizza{display:flex;flex-direction:column}
+.card.quadro-pizza .pizza-wrap{flex:1;justify-content:center}
+.pizza-wrap.empilhada{flex-direction:column;align-items:center;gap:16px}
+.pizza-wrap.empilhada .pizza-leg{flex:0 0 auto;width:100%;max-width:430px}
+.pizza-wrap{display:flex;gap:22px;align-items:center;flex-wrap:wrap;padding:14px 18px 16px}
 .pizza-svg{flex:0 0 auto}
 .pizza-leg{flex:1 1 200px;display:flex;flex-direction:column;gap:9px;min-width:190px}
 .pizza-leg .it{display:grid;grid-template-columns:12px 1fr auto auto;gap:10px;align-items:center;
@@ -945,7 +951,7 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
     <section id="painel-rgeral" role="tabpanel" aria-labelledby="aba-rgeral" tabindex="0" data-painel="rgeral" hidden>
       <div class="kpis" id="rep-kpis"></div>
       <div class="grade">
-        <div class="card g5">
+        <div class="card g5 quadro-pizza">
           <div class="card-h"><div class="card-t">Efeito no prazo de entrega</div>
             <div class="card-s" id="rep-sub-pizza">—</div></div>
           <div class="pizza-wrap">
@@ -960,12 +966,6 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
         </div>
       </div>
       <div class="card" style="margin-bottom:14px">
-        <div class="card-h"><div class="card-t">Onde estão hoje as intervenções repactuadas</div>
-          <div class="card-s" id="rep-sub-hoje">—</div></div>
-        <div class="plot" id="rep-hoje" style="padding-bottom:2px"></div>
-        <div class="leg" id="rep-leg-hoje"></div>
-      </div>
-      <div class="card" style="margin-bottom:14px">
         <div class="card-h"><div class="card-t" id="rc-titulo">Quem remarca e o que é remarcado</div>
           <div class="card-s" id="rc-sub">—</div></div>
         <div class="duo">
@@ -978,6 +978,12 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
             <div class="plot" id="rm-tipo"></div>
           </div>
         </div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-h"><div class="card-t">Onde estão hoje as intervenções repactuadas</div>
+          <div class="card-s" id="rep-sub-hoje">—</div></div>
+        <div class="plot" id="rep-hoje" style="padding-bottom:2px"></div>
+        <div class="leg" id="rep-leg-hoje"></div>
       </div>
     </section>
 
@@ -2351,10 +2357,36 @@ function barra100(el, segs, total){
   ligarTip(el);
 }
 
-function pizza(el, segs, total, termo){
+/* opt.ajustar faz o anel crescer para preencher o quadrante: só quem divide a linha com
+   um gráfico alto precisa disso. Sem a opção, o tamanho é o fixo de sempre — a pizza do
+   painel de entregas não muda de aparência. */
+/* Largura que a legenda precisa para cada rótulo caber numa linha só — "Voltou ao
+   planejamento" é o mais longo — mais a contagem, o percentual e o vão. */
+const PIZZA_MIN = 240, LEG_RESERVA = 292;
+function tamanhoPizza(el, max){
+  const caixa = el.parentElement;
+  if(!caixa || !caixa.clientHeight) return 244;
+  const est = getComputedStyle(caixa);
+  const padH = parseFloat(est.paddingLeft) + parseFloat(est.paddingRight);
+  const padV = parseFloat(est.paddingTop) + parseFloat(est.paddingBottom);
+  const leg = caixa.querySelector('.pizza-leg');
+  const largura = caixa.clientWidth - padH, altura = caixa.clientHeight - padV;
+  /* Num quadrante alto e estreito — que é o caso aqui, ao lado do gráfico de unidades —
+     a legenda embaixo rende mais: o anel fica com a largura inteira e cada rótulo cabe
+     numa linha. Lado a lado só quando há largura folgada para as duas coisas. */
+  const ladoALado = !!leg && altura <= largura * 0.95 && largura >= PIZZA_MIN + LEG_RESERVA;
+  if(leg) caixa.classList.toggle('empilhada', !ladoALado);
+  /* a altura da legenda é lida depois de trocar a classe, já na forma final */
+  const livreL = ladoALado ? largura - LEG_RESERVA : largura;
+  const livreA = ladoALado || !leg ? altura : altura - leg.offsetHeight - 22;
+  return Math.round(Math.max(PIZZA_MIN, Math.min(max || 320, livreL, livreA)));
+}
+function pizza(el, segs, total, termo, opt){
+  opt = opt || {};
   const vis = segs.filter(g => g.v > 0);
   if(!total || !vis.length){ el.innerHTML = '<div class="sem" style="width:240px">Sem registros</div>'; return; }
-  const tam = 244, cx = tam/2, cy = tam/2, R = tam/2 - 8, Ri = R*0.56;
+  const tam = opt.ajustar ? tamanhoPizza(el, opt.max) : 244;
+  const cx = tam/2, cy = tam/2, R = tam/2 - 8, Ri = R*0.56;
   let s = '<svg width="' + tam + '" height="' + tam + '" viewBox="0 0 ' + tam + ' ' + tam +
           '" role="img" aria-label="situação das entregas"><g>';
   const rotulo = g => '<title>' + esc(g.nome) + ': ' + fmt(g.v) + ' (' + pc(g.v,total) + ')</title>';
@@ -2380,9 +2412,12 @@ function pizza(el, segs, total, termo){
       a0 = a1;
     });
   }
-  s += '<text x="' + cx + '" y="' + (cy-1) + '" text-anchor="middle" style="font-size:27px;font-weight:700;' +
-       'fill:var(--navy);letter-spacing:-.02em">' + fmt(total) + '</text>';
-  s += '<text x="' + cx + '" y="' + (cy+18) + '" text-anchor="middle" class="tick">' + esc(termo || 'entregas') + '</text>';
+  const fCentro = Math.max(24, Math.round(tam * 0.115));
+  s += '<text x="' + cx + '" y="' + (cy - 1 + Math.round((fCentro - 27) * 0.35)) + '" text-anchor="middle" ' +
+       'style="font-size:' + fCentro + 'px;font-weight:700;fill:var(--navy);letter-spacing:-.02em">' +
+       fmt(total) + '</text>';
+  s += '<text x="' + cx + '" y="' + (cy + 18 + Math.round((fCentro - 27) * 0.5)) + '" text-anchor="middle" ' +
+       'class="tick">' + esc(termo || 'entregas') + '</text>';
   el.innerHTML = s + '</g></svg>';
   ligarTip(el);
 }
@@ -3951,7 +3986,7 @@ function abaRepGeral(dr){
       (semComparar ? ' · ' + fmt(semComparar) + ' sem prazo para comparar' : '') +
       (reinc ? ' · ' + fmt(reinc) + (reinc === 1 ? ' remarcada duas vezes' : ' remarcadas duas vezes') : '')
     : 'Nada no recorte atual';
-  pizza($('#rep-pizza'), segs, total, 'repactuações');
+  const desenharPizza = () => pizza($('#rep-pizza'), segs, total, 'repactuações', {ajustar:true, max:340});
   $('#rep-leg-pizza').innerHTML = segs.filter(g => g.v).map(g =>
     '<span class="it"><i class="sw" style="background:' + g.cor + '"></i><span>' + esc(g.nome) +
     '</span><b>' + fmt(g.v) + '</b><span class="pc">' + pc(g.v, total) + '</span></span>').join('');
@@ -3976,6 +4011,8 @@ function abaRepGeral(dr){
               : ' · nenhuma adiou a entrega')
   })), {alvo: Math.max(220, Math.min(560, top.length*34 + 20)), altMax:28,
         aria:ESCOPO() ? 'repactuações por intervenção' : 'repactuações por unidade de saúde'});
+  /* agora que o gráfico ao lado já fixou a altura da linha, o anel sabe de quanto dispõe */
+  desenharPizza();
 
 
   /* 3. quem remarca (contratada) e o que é remarcado (tipo de entrega) */
