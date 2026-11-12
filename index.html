@@ -954,35 +954,30 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
           </div>
         </div>
         <div class="card g7">
-          <div class="card-h"><div class="card-t" id="rc-titulo">Quem remarca e o que é remarcado</div>
-            <div class="card-s" id="rc-sub">—</div></div>
-          <div class="duo">
-            <div class="meia">
-              <div class="meia-t">Contratada</div>
-              <div class="plot" id="rc-qtd"></div>
-            </div>
-            <div class="meia">
-              <div class="meia-t">Tipo de entrega</div>
-              <div class="plot" id="rm-tipo"></div>
-            </div>
-          </div>
+          <div class="card-h"><div class="card-t" id="rep-t-top">Repactuações por unidade de saúde</div>
+            <div class="card-s" id="rep-sub-top">—</div></div>
+          <div class="plot" id="rep-top"></div>
         </div>
-      </div>
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-h"><div class="card-t" id="rep-t-top">Repactuações por unidade de saúde</div>
-          <div class="card-s" id="rep-sub-top">—</div></div>
-        <div class="plot" id="rep-top"></div>
-      </div>
-      <div class="card so-rede" style="margin-bottom:14px">
-        <div class="card-h"><div class="card-t">Quadro por unidade</div>
-          <div class="card-s" id="ru-sub-tab">Clique numa linha para abrir os registros dessa unidade</div></div>
-        <div class="tabela-wrap"><table id="tab-runi"><thead><tr></tr></thead><tbody></tbody></table></div>
       </div>
       <div class="card" style="margin-bottom:14px">
         <div class="card-h"><div class="card-t">Onde estão hoje as intervenções repactuadas</div>
           <div class="card-s" id="rep-sub-hoje">—</div></div>
         <div class="plot" id="rep-hoje" style="padding-bottom:2px"></div>
         <div class="leg" id="rep-leg-hoje"></div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-h"><div class="card-t" id="rc-titulo">Quem remarca e o que é remarcado</div>
+          <div class="card-s" id="rc-sub">—</div></div>
+        <div class="duo">
+          <div class="meia">
+            <div class="meia-t">Contratada</div>
+            <div class="plot" id="rc-qtd"></div>
+          </div>
+          <div class="meia">
+            <div class="meia-t">Tipo de entrega</div>
+            <div class="plot" id="rm-tipo"></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -995,10 +990,10 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
           <span class="it"><i class="sw" style="background:var(--navy)"></i>Percentual acumulado</span>
           <span class="it">Tracejado: corte de 80%</span></div>
       </div>
-      <div class="card">
-        <div class="card-h"><div class="card-t" id="rm-t-matriz">Motivo por unidade de saúde</div>
-          <div class="card-s" id="rm-sub-matriz">—</div></div>
-        <div class="tabela-wrap"><table class="matriz" id="tab-rmatriz"><thead><tr></tr></thead><tbody></tbody></table></div>
+      <div class="card so-rede">
+        <div class="card-h"><div class="card-t">Quadro por unidade</div>
+          <div class="card-s" id="ru-sub-tab">Clique numa linha para abrir os registros dessa unidade</div></div>
+        <div class="tabela-wrap"><table id="tab-runi"><thead><tr></tr></thead><tbody></tbody></table></div>
       </div>
     </section>
 
@@ -3971,16 +3966,17 @@ function abaRepGeral(dr){
     ? plRep(total) + ' em ' + plural(top.length, ESCOPO() ? 'intervenção' : 'unidade',
                                                ESCOPO() ? 'intervenções' : 'unidades')
     : 'Nada no recorte atual';
+  /* o cartão divide a linha com a pizza: a altura cresce com o número de unidades, mas
+     para num teto — a rede inteira numa tela só esticaria o cartão vizinho por centenas de
+     pixels de espaço vazio. Passando do teto, são as barras que afinam. */
   barrasH($('#rep-top'), top.map(o => ({
     rot:o.rot, v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)',
     tip:o.nome + ' — ' + plRep(o.n) +
         (o.ad ? ' · ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') + ' a entrega, ' + plDias(o.dias)
               : ' · nenhuma adiou a entrega')
-  })), {alvo: Math.max(200, top.length*34 + 20), altMax:28,
+  })), {alvo: Math.max(220, Math.min(560, top.length*34 + 20)), altMax:28,
         aria:ESCOPO() ? 'repactuações por intervenção' : 'repactuações por unidade de saúde'});
-  /* o quadro detalhado vive no mesmo lugar do gráfico; numa conta de hospital ele some
-     pela classe so-rede, porque uma tabela de uma linha só não é uma tabela */
-  if(!ESCOPO()) quadroPorUnidade(dr);
+
 
   /* 3. quem remarca (contratada) e o que é remarcado (tipo de entrega) */
   pintarRankingContratadas(rankCon);
@@ -4067,37 +4063,9 @@ function abaRepMotivos(dr){
         (o.dias ? ' · ' + plDias(o.dias) + ' adiados' : '')
   })), {altura:330, aria:'Pareto de repactuações por motivo'});
 
-  /* cruzamento do motivo com quem o painel tem para cruzar: as unidades na visão da rede,
-     as contratadas quando a conta enxerga uma unidade só */
-  const porUnidade = !ESCOPO();
-  const campo = porUnidade ? 'unidade' : 'contratada';
-  const colunas = [...new Set(dr.map(x => x[campo]))]
-    .sort((a,b) => dr.filter(x => x[campo] === b).length - dr.filter(x => x[campo] === a).length ||
-                   a.localeCompare(b,'pt-BR'));
-  const rotCol = c => porUnidade ? siglaDe(c) : c;
-  const motivos = porQtd.map(([k]) => k);
-  $('#rm-sub-matriz').textContent = motivos.length && colunas.length
-    ? (porUnidade ? 'Quantas repactuações de cada motivo em cada unidade'
-                  : 'Quantas repactuações de cada motivo por contratada')
-    : 'Nada no recorte atual';
-  const tit = $('#rm-t-matriz');
-  if(tit) tit.textContent = porUnidade ? 'Motivo por unidade de saúde' : 'Motivo por contratada';
-  document.querySelector('#tab-rmatriz thead tr').innerHTML =
-    '<th scope="col">Motivo</th>' + colunas.map(c =>
-      '<th scope="col" class="num" title="' + esc(c) + '">' + esc(rotCol(c)) + '</th>').join('') +
-    '<th scope="col" class="num">Total</th>';
-  const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' +
-    (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') + '>' + fmt(v) + '</td>';
-  document.querySelector('#tab-rmatriz tbody').innerHTML = motivos.map(m => {
-    const linha = dr.filter(x => x.motivo === m);
-    return '<tr><td><span class="badge" style="background:transparent;color:' +
-      (COR_MOTIVO[m] || 'var(--ink)') + ';padding-left:0;font-weight:700">' + esc(m) + '</span></td>' +
-      colunas.map(c => cel(linha.filter(x => x[campo] === c).length)).join('') +
-      '<td class="num"><b>' + fmt(linha.length) + '</b></td></tr>';
-  }).join('') +
-    '<tr class="total-linha"><td>TOTAL</td>' +
-    colunas.map(c => '<td class="num">' + fmt(dr.filter(x => x[campo] === c).length) + '</td>').join('') +
-    '<td class="num">' + fmt(dr.length) + '</td></tr>';
+  /* o detalhe por unidade fica logo abaixo do Pareto; numa conta de hospital ele some
+     pela classe so-rede, porque uma tabela de uma linha só não é uma tabela */
+  if(!ESCOPO()) quadroPorUnidade(dr);
 }
 
 /* ------------------------------------------------------- por unidade */
