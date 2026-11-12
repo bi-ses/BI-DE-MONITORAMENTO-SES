@@ -631,7 +631,6 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
     <div class="abas" id="abas-repac" role="tablist" hidden>
       <button class="aba" role="tab" id="aba-rgeral" aria-controls="painel-rgeral" data-aba="rgeral" aria-selected="true" tabindex="0">Visão geral</button>
       <button class="aba" role="tab" id="aba-rmotivos" aria-controls="painel-rmotivos" data-aba="rmotivos" aria-selected="false" tabindex="-1">Motivos</button>
-      <button class="aba so-rede" role="tab" id="aba-runidades" aria-controls="painel-runidades" data-aba="runidades" aria-selected="false" tabindex="-1">Unidades</button>
       <button class="aba" role="tab" id="aba-rregistros" aria-controls="painel-rregistros" data-aba="rregistros" aria-selected="false" tabindex="-1">Registros</button>
     </div>
     <div class="estado-in">
@@ -955,24 +954,29 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
           </div>
         </div>
         <div class="card g7">
-          <div class="card-h"><div class="card-t" id="rep-t-top">Quem mais repactua</div>
-            <div class="card-s" id="rep-sub-top">—</div></div>
-          <div class="plot" id="rep-top"></div>
+          <div class="card-h"><div class="card-t" id="rc-titulo">Quem remarca e o que é remarcado</div>
+            <div class="card-s" id="rc-sub">—</div></div>
+          <div class="duo">
+            <div class="meia">
+              <div class="meia-t">Contratada</div>
+              <div class="plot" id="rc-qtd"></div>
+            </div>
+            <div class="meia">
+              <div class="meia-t">Tipo de entrega</div>
+              <div class="plot" id="rm-tipo"></div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="card" style="margin-bottom:14px">
-        <div class="card-h"><div class="card-t" id="rc-titulo">Quem remarca e o que é remarcado</div>
-          <div class="card-s" id="rc-sub">—</div></div>
-        <div class="duo">
-          <div class="meia">
-            <div class="meia-t">Contratada</div>
-            <div class="plot" id="rc-qtd"></div>
-          </div>
-          <div class="meia">
-            <div class="meia-t">Tipo de entrega</div>
-            <div class="plot" id="rm-tipo"></div>
-          </div>
-        </div>
+        <div class="card-h"><div class="card-t" id="rep-t-top">Repactuações por unidade de saúde</div>
+          <div class="card-s" id="rep-sub-top">—</div></div>
+        <div class="plot" id="rep-top"></div>
+      </div>
+      <div class="card so-rede" style="margin-bottom:14px">
+        <div class="card-h"><div class="card-t">Quadro por unidade</div>
+          <div class="card-s" id="ru-sub-tab">Clique numa linha para abrir os registros dessa unidade</div></div>
+        <div class="tabela-wrap"><table id="tab-runi"><thead><tr></tr></thead><tbody></tbody></table></div>
       </div>
       <div class="card" style="margin-bottom:14px">
         <div class="card-h"><div class="card-t">Onde estão hoje as intervenções repactuadas</div>
@@ -998,18 +1002,6 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
       </div>
     </section>
 
-    <section id="painel-runidades" role="tabpanel" aria-labelledby="aba-runidades" tabindex="0" data-painel="runidades" hidden>
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-h"><div class="card-t">Repactuações por unidade de saúde</div>
-          <div class="card-s" id="ru-sub-graf">—</div></div>
-        <div class="plot" id="ru-graf"></div>
-      </div>
-      <div class="card">
-        <div class="card-h"><div class="card-t">Quadro por unidade</div>
-          <div class="card-s" id="ru-sub-tab">Clique numa linha para abrir os registros dessa unidade</div></div>
-        <div class="tabela-wrap"><table id="tab-runi"><thead><tr></tr></thead><tbody></tbody></table></div>
-      </div>
-    </section>
 
     <section id="painel-rerros" role="tabpanel" aria-labelledby="aba-rregistros" tabindex="0" data-painel="rerros" hidden>
       <div class="card">
@@ -2445,7 +2437,7 @@ const NOME_ABA = {geral:'Visão geral', vencimentos:'Vencimentos', cronograma:'C
                   execucao:'Execução', carteira:'Distribuição',
                   unidades:'Unidades', pavimentos:'Pavimentos', mapa:'Mapa', consulta:'Consulta',
                   erros:'Erros', semdata:'Sem data', semarea:'Sem área',
-                  rgeral:'Visão geral', rmotivos:'Motivos', runidades:'Unidades', rregistros:'Registros',
+                  rgeral:'Visão geral', rmotivos:'Motivos', rregistros:'Registros',
                   rerros:'Conferência do histórico'};
 function resumoImpressao(n){
   const f = [];
@@ -2471,7 +2463,6 @@ function desenhar(){
     return comRolagem(() => {
       if(ABA === 'rgeral')     return abaRepGeral(dr);
       if(ABA === 'rmotivos')   return abaRepMotivos(dr);
-      if(ABA === 'runidades')  return abaRepUnidades(dr);
       if(ABA === 'rregistros') return abaRepRegistros(dr);
       if(ABA === 'rerros')     return abaRepErros();
     });
@@ -3668,7 +3659,7 @@ let MODO_PAINEL = 'entregas', ABA_ENTREGAS = 'geral', ABA_REPAC = 'rgeral';
 let ordemRep = {col:'linha', dir:1}, ordemRepUni = {col:'n', dir:-1};
 const NOME_ENTREGAS = 'Painel de Monitoramento das Entregas';
 const NOME_REPAC = 'Controle de Repactuações';
-const abaRepac = a => a === 'rgeral' || a === 'rmotivos' || a === 'runidades' ||
+const abaRepac = a => a === 'rgeral' || a === 'rmotivos' ||
                       a === 'rregistros' || a === 'rerros';
 
 /* mesmo casamento de colunas usado na carteira: nome exato, depois começo, depois pedaço */
@@ -3879,7 +3870,7 @@ function pintarAvisoRepac(){
           : 'Ela está vazia ou sem nenhuma linha preenchida.');
   }
   if(cx){ cx.hidden = !msg; cx.innerHTML = msg; }
-  ['rgeral','rmotivos','runidades','rregistros','rerros'].forEach(n => {
+  ['rgeral','rmotivos','rregistros','rerros'].forEach(n => {
     const s = document.querySelector('section[data-painel="' + n + '"]');
     if(s) s.hidden = msg ? true : n !== ABA;
   });
@@ -3970,21 +3961,26 @@ function abaRepGeral(dr){
     '<span class="it"><i class="sw" style="background:' + g.cor + '"></i><span>' + esc(g.nome) +
     '</span><b>' + fmt(g.v) + '</b><span class="pc">' + pc(g.v, total) + '</span></span>').join('');
 
-  /* 2. quem remarca com mais frequência */
-  const top = rankTop.slice(0, 9);
+  /* 2. TODAS as unidades, sem corte: a pergunta é a distribuição da rede inteira, e um
+     ranking dos nove primeiros deixava de fora justamente quem não repactua — que é
+     informação de gestão igual à de quem repactua muito. */
+  const top = rankTop;
   const tit = $('#rep-t-top');
-  if(tit) tit.textContent = ESCOPO() ? 'Intervenções mais repactuadas' : 'Hospitais que mais repactuam';
+  if(tit) tit.textContent = ESCOPO() ? 'Repactuações por intervenção' : 'Repactuações por unidade de saúde';
   $('#rep-sub-top').textContent = top.length
-    ? 'Quantas vezes o prazo foi remarcado em cada ' + (ESCOPO() ? 'intervenção' : 'unidade') +
-      avisoCorte(top.length, rankTop.length, ESCOPO() ? 'intervenções' : 'unidades')
+    ? plRep(total) + ' em ' + plural(top.length, ESCOPO() ? 'intervenção' : 'unidade',
+                                               ESCOPO() ? 'intervenções' : 'unidades')
     : 'Nada no recorte atual';
   barrasH($('#rep-top'), top.map(o => ({
     rot:o.rot, v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)',
     tip:o.nome + ' — ' + plRep(o.n) +
         (o.ad ? ' · ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') + ' a entrega, ' + plDias(o.dias)
               : ' · nenhuma adiou a entrega')
-  })), {alvo: Math.max(150, Math.min(330, top.length*34 + 20)), altMax:26,
-        aria:ESCOPO() ? 'intervenções mais repactuadas' : 'repactuações por unidade de saúde'});
+  })), {alvo: Math.max(200, top.length*34 + 20), altMax:28,
+        aria:ESCOPO() ? 'repactuações por intervenção' : 'repactuações por unidade de saúde'});
+  /* o quadro detalhado vive no mesmo lugar do gráfico; numa conta de hospital ele some
+     pela classe so-rede, porque uma tabela de uma linha só não é uma tabela */
+  if(!ESCOPO()) quadroPorUnidade(dr);
 
   /* 3. quem remarca (contratada) e o que é remarcado (tipo de entrega) */
   pintarRankingContratadas(rankCon);
@@ -4089,7 +4085,7 @@ function abaRepMotivos(dr){
   document.querySelector('#tab-rmatriz thead tr').innerHTML =
     '<th scope="col">Motivo</th>' + colunas.map(c =>
       '<th scope="col" class="num" title="' + esc(c) + '">' + esc(rotCol(c)) + '</th>').join('') +
-    '<th scope="col" class="num">Total</th><th scope="col" class="num">Dias adiados</th>';
+    '<th scope="col" class="num">Total</th>';
   const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' +
     (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') + '>' + fmt(v) + '</td>';
   document.querySelector('#tab-rmatriz tbody').innerHTML = motivos.map(m => {
@@ -4097,22 +4093,20 @@ function abaRepMotivos(dr){
     return '<tr><td><span class="badge" style="background:transparent;color:' +
       (COR_MOTIVO[m] || 'var(--ink)') + ';padding-left:0;font-weight:700">' + esc(m) + '</span></td>' +
       colunas.map(c => cel(linha.filter(x => x[campo] === c).length)).join('') +
-      '<td class="num"><b>' + fmt(linha.length) + '</b></td>' +
-      cel(linha.reduce((s,x) => s + x.adiamento, 0), 'var(--t-atraso)') + '</tr>';
+      '<td class="num"><b>' + fmt(linha.length) + '</b></td></tr>';
   }).join('') +
     '<tr class="total-linha"><td>TOTAL</td>' +
     colunas.map(c => '<td class="num">' + fmt(dr.filter(x => x[campo] === c).length) + '</td>').join('') +
-    '<td class="num">' + fmt(dr.length) + '</td>' +
-    '<td class="num">' + fmt(dr.reduce((s,x) => s + x.adiamento, 0)) + '</td></tr>';
+    '<td class="num">' + fmt(dr.length) + '</td></tr>';
 }
 
 /* ------------------------------------------------------- por unidade */
 const COL_RUNI = [
   ['unidade','Unidade de saúde',''], ['n','Repactuações','num'], ['ids','Intervenções','num'],
-  ['ad','Adiaram a entrega','num'], ['dias','Dias adiados','num'],
-  ['media','Adiamento médio','num'], ['motivo','Motivo predominante','']
+  ['ad','Adiaram a entrega','num'], ['media','Adiamento médio','num'],
+  ['motivo','Motivo predominante','']
 ];
-function abaRepUnidades(dr){
+function quadroPorUnidade(dr){
   const m = contarRep(dr, 'unidade');
   const linhas = Object.entries(m).map(([u,o]) => {
     const daUni = dr.filter(x => x.unidade === u);
@@ -4130,19 +4124,6 @@ function abaRepUnidades(dr){
       return a.motivo.localeCompare(b.motivo,'pt-BR') * ordemRepUni.dir;
     return (a[ordemRepUni.col] - b[ordemRepUni.col]) * ordemRepUni.dir || b.n - a.n;
   });
-  const porN = linhas.slice().sort((a,b) => b.n - a.n || b.dias - a.dias);
-  $('#ru-sub-graf').textContent = linhas.length
-    ? plRep(dr.length) + ' em ' + linhas.length + (linhas.length === 1 ? ' unidade' : ' unidades') +
-      avisoCorte(Math.min(12, porN.length), porN.length, 'unidades')
-    : 'Nada no recorte atual';
-  barrasH($('#ru-graf'), porN.slice(0,12).map(o => ({
-    rot:siglaDe(o.unidade), v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)',
-    tip:nomeCurto(o.unidade) + ' — ' + plRep(o.n) + ' em ' + fmt(o.ids) +
-        (o.ids === 1 ? ' intervenção' : ' intervenções') +
-        (o.ad ? ' · ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') + ' a entrega, ' + plDias(o.dias)
-              : ' · nenhuma adiou a entrega')
-  })), {alvo: Math.max(150, Math.min(360, porN.length*38 + 20)), altMax:30, aria:'repactuações por unidade'});
-
   document.querySelector('#tab-runi thead tr').innerHTML = cabecalho(COL_RUNI, ordemRepUni);
   const cel = (v, cor) => '<td class="num' + (v ? '' : ' zero') + '"' +
     (v && cor ? ' style="color:' + cor + ';font-weight:700"' : '') + '>' + fmt(v) + '</td>';
@@ -4152,7 +4133,7 @@ function abaRepUnidades(dr){
     '<tr class="rep-uni" data-uni="' + esc(o.unidade) + '" title="Abrir os registros de ' + esc(nomeCurto(o.unidade)) + '">' +
     '<td class="cel-uni">' + comSigla(o.unidade) + '</td>' +
     '<td class="num"><b>' + fmt(o.n) + '</b></td><td class="num">' + fmt(o.ids) + '</td>' +
-    cel(o.ad, 'var(--t-atraso)') + cel(o.dias, 'var(--t-atraso)') +
+    cel(o.ad, 'var(--t-atraso)') +
     '<td class="num">' + (o.ad ? fmt(o.media) + ' d' : '—') + '</td>' +
     '<td><span style="color:' + (COR_MOTIVO[o.motivo] || 'var(--ink-2)') + ';font-weight:600">' +
       esc(o.motivo) + '</span>' + (o.motivoN ? ' <span style="color:var(--muted)">· ' + fmt(o.motivoN) + '</span>' : '') +
@@ -4160,7 +4141,7 @@ function abaRepUnidades(dr){
     (linhas.length ? '<tr class="total-linha"><td>TOTAL — ' + fmt(linhas.length) +
       (linhas.length === 1 ? ' unidade' : ' unidades') + '</td>' +
       '<td class="num">' + fmt(soma.n) + '</td><td class="num">' + fmt(soma.ids) + '</td>' +
-      '<td class="num">' + fmt(soma.ad) + '</td><td class="num">' + fmt(soma.dias) + '</td>' +
+      '<td class="num">' + fmt(soma.ad) + '</td>' +
       '<td class="num">' + (soma.ad ? fmt(Math.round(soma.dias / soma.ad)) + ' d' : '—') + '</td>' +
       '<td></td></tr>' : '');
 }
