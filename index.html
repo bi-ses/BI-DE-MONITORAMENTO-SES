@@ -234,6 +234,14 @@ body.escopo .so-unidade{display:flex}
 .duo .meia{flex:1 1 340px;min-width:0;display:flex;flex-direction:column}
 .duo .meia .plot{flex:0 0 auto}
 .duo .meia + .meia{border-left:1px solid var(--grid)}
+.meia-t .meia-s{font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted)}
+/* o cartão de unidades tem dois gráficos com escalas diferentes: o título vai centrado
+   sobre os dois e o rótulo de cada metade ganha peso, porque é ele que diz a qual grupo
+   aquela escala pertence */
+.card.uni-dupla .card-h{text-align:center}
+.card.uni-dupla .meia-t{text-align:center;font-size:14px;font-weight:800;color:var(--ink);
+  letter-spacing:.01em;padding-bottom:3px}
+.card.uni-dupla .meia-t .meia-s{font-size:12px;font-weight:500}
 .meia-t{font-size:11.5px;font-weight:700;color:var(--ink-2);padding:13px 18px 0}
 @media(max-width:820px){.duo .meia + .meia{border-left:0;border-top:1px solid var(--grid)}}
 .plot svg{display:block;max-width:100%;overflow:hidden}
@@ -700,6 +708,8 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
 
     <div class="card filtros" id="card-filtros-repac" hidden>
       <div class="f u"><label id="lb-runi">Unidade de saúde</label><div class="ms" id="ms-runi"></div></div>
+      <div class="f m"><label id="lb-rger">GERES</label><div class="ms" id="ms-rger"></div></div>
+      <div class="f m"><label id="lb-rtip">Tipo de entrega</label><div class="ms" id="ms-rtip"></div></div>
       <div class="f m"><label id="lb-rmot">Motivo declarado</label><div class="ms" id="ms-rmot"></div></div>
       <div class="f m"><label id="lb-rcon">Contratada</label><div class="ms" id="ms-rcon"></div></div>
       <div class="f m"><label id="lb-rmov">Efeito no prazo</label><div class="ms" id="ms-rmov"></div></div>
@@ -959,10 +969,19 @@ html[data-theme="dark"] .spinner{border-color:var(--grid);border-top-color:var(-
             <div class="pizza-leg" id="rep-leg-pizza"></div>
           </div>
         </div>
-        <div class="card g7">
+        <div class="card g7 uni-dupla">
           <div class="card-h"><div class="card-t" id="rep-t-top">Repactuações por unidade de saúde</div>
             <div class="card-s" id="rep-sub-top">—</div></div>
-          <div class="plot" id="rep-top"></div>
+          <div class="duo" id="duo-unidades">
+            <div class="meia">
+              <div class="meia-t" id="rep-t-g">Grandes hospitais</div>
+              <div class="plot" id="rep-top"></div>
+            </div>
+            <div class="meia" id="meia-reg">
+              <div class="meia-t" id="rep-t-reg">Regionais</div>
+              <div class="plot" id="rep-top-reg"></div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="card" style="margin-bottom:14px">
@@ -1570,6 +1589,10 @@ function classificar(r){
   r.grupo = GRUPO_DE[r.status] || 'A planejar';
 }
 
+/* Os seis grandes hospitais da rede, como a gestão os chama. Todo o resto — regionais,
+   hemocentro, laboratório central e apoio — entra no segundo gráfico. Lista separada de
+   propósito: muda aqui, muda no painel inteiro. */
+const GRANDES = new Set(['HR','HBL','HOF','HAM','HGV','HRA']);
 const GRUPOS = [
   {nome:'Em atraso',           cor:'var(--c-atraso)', txt:'#fff'},
   {nome:'Em execução',         cor:'var(--c-prazo)', txt:'#fff'},
@@ -2030,7 +2053,7 @@ function realce(txt, termos){
 /* os campos com "r" no começo são do Controle de Repactuações: moram aqui para que os
    seletores múltiplos, que leem F[campo], sirvam aos dois painéis sem duplicar código */
 const F = {uni:[], ger:[], tip:[], cla:[], sit:[], bus:'',
-           runi:[], rmot:[], rcon:[], rmov:[], rbus:''};
+           runi:[], rger:[], rtip:[], rmot:[], rcon:[], rmov:[], rbus:''};
 let SO_INICIO = false, MES_SEL = null;
 
 const MULTI = [
@@ -2216,6 +2239,64 @@ const plural = (n, um, muitos) => fmt(n) + ' ' + (n === 1 ? um : muitos);
 const unicos = f => [...new Set(LINHAS.map(f).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR'));
 
 /* ------------------------------------------------------------- gráficos */
+/* ---- lista longa de barras, repartida em colunas ----------------------------
+   A rede inteira numa coluna só vira um cartão de 600 px de altura com dois terços da
+   largura vazios, e a cauda de unidades com 1 ou 2 remarcações fica ilegível no pé.
+   Em duas colunas a mesma informação, na MESMA escala, ocupa metade da altura e usa a
+   largura que já estava sobrando. A escala continua linear: nada de raiz nem log, que
+   deixariam a barra pequena parecer maior do que é. */
+function barrasColunas(el, itens, opt){
+  opt = opt || {};
+  const alvo = opt.alvo || 300;
+  if(!itens.length){
+    el.innerHTML = '<div class="sem" style="min-height:' + Math.max(60, alvo - 46) + 'px;display:flex;' +
+      'align-items:center;justify-content:center">' + esc(opt.vazio || 'Sem registros no recorte atual') + '</div>';
+    return;
+  }
+  const larg = Math.max(240, Math.floor(el.clientWidth) || 380);
+  const LARG_MIN_COL = 250, gapCol = 28, gap = 8;
+  const nCols = Math.max(1, Math.min(opt.cols || (itens.length > 9 ? 2 : 1),
+                                     Math.floor((larg + gapCol) / (LARG_MIN_COL + gapCol)) || 1));
+  const linhas = Math.ceil(itens.length / nCols);
+  const alt = Math.max(13, Math.min(opt.altMax || 26, Math.floor((alvo - 14) / linhas) - gap));
+  const altura = Math.max(alt + 14, linhas * (alt + gap) - gap + 14);
+  const largCol = (larg - gapCol * (nCols - 1)) / nCols;
+  const max = Math.max(1, ...itens.map(i => i.v));
+  const larguraVal = Math.ceil(Math.max(...itens.map(i => larguraTexto(i.vtxt, F_VAL)))) + 10;
+  const maxRot = Math.max(46, Math.min(largCol * 0.44, largCol - larguraVal - 56));
+  const larguraRot = Math.ceil(Math.min(maxRot, Math.max(...itens.map(i => larguraTexto(i.rot, F_ROT)))));
+
+  const descricao = (opt.aria || 'gráfico de barras') + ': ' + itens.map(i => i.rot + ' ' + i.vtxt).join('; ');
+  let s = '<svg width="' + larg + '" height="' + altura + '" viewBox="0 0 ' + larg + ' ' + altura +
+          '" role="img" aria-label="' + esc(descricao) + '">';
+  itens.forEach((it, k) => {
+    /* Preenche em ziguezague: 1º e 2º lado a lado, depois 3º e 4º. Assim as duas colunas
+       ficam com barras grandes e pequenas, em vez de uma coluna cheia e outra só com
+       tracinhos — e a ordem decrescente continua legível, lendo da esquerda para a
+       direita e descendo. A escala é a mesma nas duas. */
+    const col = opt.coluna ? Math.floor(k / linhas) : k % nCols;
+    const lin = opt.coluna ? k % linhas : Math.floor(k / nCols);
+    const ox = col * (largCol + gapCol);
+    const x0 = ox + larguraRot + 12, x1 = ox + largCol - larguraVal;
+    const y = 7 + lin * (alt + gap);
+    const w = it.v > 0 ? Math.max(3, Math.max(0, x1 - x0) * it.v / max) : 0;
+    const rot = encurtar(it.rot, larguraRot, F_ROT);
+    s += '<g class="linha">';
+    s += '<rect class="faixa-hover" x="' + ox + '" y="' + (y-3) + '" width="' + largCol + '" height="' + (alt+6) + '" rx="4"></rect>';
+    s += '<text class="clab" x="' + (x0-10) + '" y="' + (y + alt/2 + 4) + '" text-anchor="end">' + esc(rot) +
+         (rot === it.rot ? '' : '<title>' + esc(it.rot) + '</title>') + '</text>';
+    if(w > 0)
+      s += '<rect class="mark" x="' + x0 + '" y="' + y + '" width="' + w + '" height="' + alt + '" rx="4" fill="' +
+           it.cor + '" data-t="' + esc(it.tip || it.rot) + '" data-v="' + esc(it.vtxt) + '"><title>' +
+           esc((it.tip || it.rot) + ': ' + it.vtxt) + '</title></rect>';
+    s += '<text class="vlab" x="' + Math.min(x0 + w + 8, ox + largCol - 2) + '" y="' + (y + alt/2 + 4) + '">' +
+         esc(it.vtxt) + '</text>';
+    s += '</g>';
+  });
+  el.innerHTML = s + '</svg>';
+  ligarTip(el);
+}
+
 function barrasH(el, itens, opt){
   opt = opt || {};
   const alvo = opt.alvo || 300;
@@ -2428,7 +2509,7 @@ const cartao = ([c,rot,n,sub,acao]) => {
                     '" title="' + esc(acao.dica || '') + '"' : '';
   return '<' + t + ' class="card kpi ' + c + (acao ? ' kpi-botao' : '') + (acao && acao.ativo ? ' kpi-ativo' : '') + '"' + at +
     '><div class="rot">' + esc(rot) + '</div><div class="num">' + n +
-    '</div><div class="sub">' + esc(sub) + '</div></' + t + '>';
+    '</div>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</' + t + '>';
 };
 
 /* ------------------------------------------------------------- abas */
@@ -3776,7 +3857,7 @@ function montarRepac(){
             : x.dIni ? 'soIni' : 'semMudanca';
       x.adiamento = x.mov === 'adiada' ? x.dFim : 0;
       x._idx = norm([siglaDe(x.unidade), x.unidade, x.descricao, x.setor, x.tipo, x.contratada,
-                     x.motivo, MOV[x.mov].rot, x.entrega.status, x.entrega.grupo,
+                     x.motivo, MOV[x.mov].rot, x.entrega.status, x.entrega.grupo, x.entrega.geres,
                      [x.iniAnt, x.fimAnt, x.iniNovo, x.fimNovo].filter(Boolean).map(dbr).join(' ')].join(' '));
       x._pal = [...new Set(x._idx.split(/[^0-9a-z]+/).filter(p => p.length >= 3))];
       REPAC.push(x);
@@ -3802,6 +3883,16 @@ function montarRepac(){
 const FR_MULTI = [
   {campo:'runi', id:'ms-runi', rot:'Todas', vazio:'Todas as unidades', sigla:true,
    valores: b => [...new Set(b.map(x => x.unidade))].sort((a,c) => nomeCurto(a).localeCompare(nomeCurto(c),'pt-BR'))},
+  /* GERES, tipo de entrega e situação de hoje vêm da linha da carteira — a mesma que o
+     ID casa. Entram porque respondem a perguntas que esta aba já faz de outro jeito: o
+     recorte regional e o gráfico por tipo. Classificação do hospital e situação de hoje
+     ficaram de fora: nada aqui é agrupado por elas, e unidade mais GERES já dão o corte
+     de "qual hospital, qual região". */
+  {campo:'rger', id:'ms-rger', rot:'Todas', vazio:'Todas as GERES', prefixo:'GERES ',
+   valores: b => [...new Set(b.map(x => x.entrega.geres).filter(Boolean))]
+     .sort((a,c) => a.length - c.length || a.localeCompare(c))},
+  {campo:'rtip', id:'ms-rtip', rot:'Todos', vazio:'Todos os tipos de entrega',
+   valores: b => [...new Set(b.map(x => x.tipo).filter(Boolean))].sort((a,c) => a.localeCompare(c,'pt-BR'))},
   {campo:'rmot', id:'ms-rmot', rot:'Todos', vazio:'Todos os motivos',
    valores: b => [...new Set(b.map(x => x.motivo))].sort((a,c) =>
      (a === SEM_MOTIVO) - (c === SEM_MOTIVO) || a.localeCompare(c,'pt-BR'))},
@@ -3827,6 +3918,8 @@ function repFiltradas(){
   const termos = parseBusca(F.rbus);
   const base = REPAC.filter(x =>
     (!F.runi.length || F.runi.includes(x.unidade)) &&
+    (!F.rger.length || F.rger.includes(x.entrega.geres)) &&
+    (!F.rtip.length || F.rtip.includes(x.tipo)) &&
     (!F.rmot.length || F.rmot.includes(x.motivo)) &&
     (!F.rcon.length || F.rcon.includes(x.contratada)) &&
     (!F.rmov.length || F.rmov.includes(MOV[x.mov].rot)));
@@ -3910,6 +4003,8 @@ function resumoRepac(n){
   const f = [];
   if(ESCOPO() && LINHAS.length) f.push('Unidade: ' + nomeCurto(LINHAS[0].unidade) + ' (' + ESCOPO() + ')');
   if(F.runi.length) f.push('Unidade: ' + F.runi.map(nomeCurto).join(', '));
+  if(F.rger.length) f.push('GERES: ' + F.rger.join(', '));
+  if(F.rtip.length) f.push('Tipo: ' + F.rtip.join(', '));
   if(F.rmot.length) f.push('Motivo: ' + F.rmot.join(', '));
   if(F.rcon.length) f.push('Contratada: ' + F.rcon.join(', '));
   if(F.rmov.length) f.push('Efeito: ' + F.rmov.join(', '));
@@ -3927,7 +4022,6 @@ function abaRepGeral(dr){
   const ad = dr.filter(x => x.mov === 'adiada');
   const soma = ad.reduce((s,x) => s + x.dFim, 0);
   const media = ad.length ? Math.round(soma / ad.length) : 0;
-  const mediana = medianaDe(ad.map(x => x.dFim));
   const semEfeito = dr.filter(x => x.mov === 'soIni' || x.mov === 'semMudanca').length;
   const semComparar = dr.filter(x => x.mov === 'semAnterior' || x.mov === 'semAtual').length;
   const reinc = new Set(dr.filter(x => x.versoes > 1).map(x => x.id)).size;
@@ -3959,22 +4053,16 @@ function abaRepGeral(dr){
   const campeao = rankTop[0] || null;
 
   $('#rep-kpis').innerHTML = [
-    ['info','Repactuações', fmt(total),
-      !total ? 'nenhuma no recorte atual'
-      : ad.length ? fmt(ad.length) + (ad.length === 1 ? ' adiou a entrega' : ' adiaram a entrega')
-      : semEfeito ? fmt(semEfeito) + (semEfeito === 1 ? ' não mexeu no término' : ' não mexeram no término')
-      : semComparar ? 'sem prazo anterior para comparar'
-      : 'nenhuma empurrou a entrega'],
+    ['info','Repactuações', fmt(total), total ? '' : 'nada no recorte atual'],
     ['info','Intervenções repactuadas', fmt(ids.size) +
-        (carteira ? '<u>' + pc(ids.size, carteira) + ' da carteira</u>' : ''),
-      total ? (reinc ? fmt(reinc) + (reinc === 1 ? ' remarcada mais de uma vez'
-                                                : ' remarcadas mais de uma vez')
-                     : 'cada uma remarcada uma única vez')
-            : 'nada no recorte atual'],
-    ['warn','Adiamento médio', ad.length ? fmt(media) + ' d' : '—',
-      ad.length ? 'por adiamento · mediana de ' + fmt(mediana) + ' d' : 'sem adiamento para calcular'],
+        (carteira ? '<u>' + pc(ids.size, carteira) + ' da carteira</u>' : ''), ''],
+    /* "por adiamento" fica coloado ao número, e não numa linha embaixo: o denominador
+       muda o que o 57 quer dizer, então não pode sumir junto com as legendas. */
+    ['warn','Adiamento médio', ad.length ? fmt(media) + ' dias<u>por adiamento</u>' : '—',
+      ad.length ? '' : 'sem adiamento para calcular'],
+    /* o único cartão que mantém linha embaixo: ela diz DE QUEM é o número de cima */
     ['crit', ESCOPO() ? 'Intervenção que mais repactua' : 'Unidade que mais repactua',
-      campeao ? fmt(campeao.n) + '×' : '—',
+      campeao ? fmt(campeao.n) + '<u>vezes</u>' : '—',
       campeao ? campeao.nome : 'nada no recorte atual']
   ].map(cartao).join('');
 
@@ -4001,16 +4089,38 @@ function abaRepGeral(dr){
     ? plRep(total) + ' em ' + plural(top.length, ESCOPO() ? 'intervenção' : 'unidade',
                                                ESCOPO() ? 'intervenções' : 'unidades')
     : 'Nada no recorte atual';
-  /* o cartão divide a linha com a pizza: a altura cresce com o número de unidades, mas
-     para num teto — a rede inteira numa tela só esticaria o cartão vizinho por centenas de
-     pixels de espaço vazio. Passando do teto, são as barras que afinam. */
-  barrasH($('#rep-top'), top.map(o => ({
+  const barraUni = o => ({
     rot:o.rot, v:o.n, vtxt:fmt(o.n), cor:'var(--c-prazo)',
     tip:o.nome + ' — ' + plRep(o.n) +
         (o.ad ? ' · ' + fmt(o.ad) + (o.ad === 1 ? ' adiou' : ' adiaram') + ' a entrega, ' + plDias(o.dias)
               : ' · nenhuma adiou a entrega')
-  })), {alvo: Math.max(220, Math.min(560, top.length*34 + 20)), altMax:28,
-        aria:ESCOPO() ? 'repactuações por intervenção' : 'repactuações por unidade de saúde'});
+  });
+  const meiaReg = $('#meia-reg'), tG = $('#rep-t-g'), tR = $('#rep-t-reg');
+  if(ESCOPO()){
+    /* numa conta de hospital não há o que separar: é uma unidade e suas intervenções */
+    if(meiaReg) meiaReg.hidden = true;
+    if(tG) tG.hidden = true;
+    barrasColunas($('#rep-top'), top.map(barraUni),
+      {alvo: Math.max(230, Math.min(430, Math.ceil(top.length / 2)*34 + 20)), altMax:26,
+       aria:'repactuações por intervenção'});
+  }else{
+    if(meiaReg) meiaReg.hidden = false;
+    if(tG) tG.hidden = false;
+    const grandes = rankUni.filter(o => GRANDES.has(o.rot));
+    const regionais = rankUni.filter(o => !GRANDES.has(o.rot));
+    /* Cada metade tem a escala dela: juntas, a maior regional virava um tracinho ao lado
+       do maior grande, que é justamente o que a separação veio resolver. Para a diferença
+       de escala ficar declarada, o título de cada metade diz quem é o maior dali, e toda
+       barra leva o número ao lado. */
+    const topo = l => l.length ? l[0].rot + ' com ' + fmt(l[0].n) : '—';
+    if(tG) tG.innerHTML = '6 grandes<span class="meia-s"> · maior: ' + esc(topo(grandes)) + '</span>';
+    if(tR) tR.innerHTML = 'Regionais<span class="meia-s"> · maior: ' + esc(topo(regionais)) + '</span>';
+    const alvo = Math.max(200, Math.min(430, Math.max(grandes.length, regionais.length)*34 + 20));
+    barrasH($('#rep-top'), grandes.map(barraUni),
+      {alvo, altMax:26, aria:'repactuações nos grandes hospitais'});
+    barrasH($('#rep-top-reg'), regionais.map(barraUni),
+      {alvo, altMax:26, aria:'repactuações nas unidades regionais e de apoio'});
+  }
   /* agora que o gráfico ao lado já fixou a altura da linha, o anel sabe de quanto dispõe */
   desenharPizza();
 
